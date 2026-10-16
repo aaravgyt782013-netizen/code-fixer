@@ -10,12 +10,24 @@
 @media(max-width:1000px){.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.app{grid-template-columns:215px minmax(0,1fr)}.sidebar{padding:20px 11px}.main{padding:23px 22px 40px}}
 @media(max-width:720px){.app{display:block}.sidebar{position:fixed;z-index:20;left:0;top:0;width:260px;transform:translateX(-105%);transition:transform .25s;height:100dvh;box-shadow:20px 0 50px #0007}.sidebar.open{transform:translateX(0)}.mobile-menu{display:inline-grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:#121b29;color:white}.main{padding:17px 15px 35px}.topbar{margin-bottom:21px}.search{width:min(190px,45vw)}.top-actions{gap:7px}.hero{padding:25px 21px}.hero .secondary{margin:9px 0 0}.hero h1{font-size:34px}.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tool-card{padding:14px;min-height:153px}.two-col{grid-template-columns:1fr}.page-title{font-size:27px}.footer{flex-direction:column}.hero:after{right:-7%;top:25%}}
 @media(max-width:390px){.tool-grid{grid-template-columns:1fr}.search{width:140px}.crumb{display:none}}
+
+/* Smooth, compact dashboard navigation */
+.sidebar{overflow-y:auto;scrollbar-width:thin;scrollbar-color:#29374e transparent}
+.nav button{position:relative;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease}
+.nav button.active{box-shadow:inset 3px 0 0 var(--accent)}
+.nav button:active{transform:scale(.985)}
+.server-mark{font-size:27px;line-height:1;letter-spacing:0;font-weight:800;text-shadow:0 1px 10px #ffffff50}
+.tool-card{transition:transform .2s ease,border-color .2s ease,background .2s ease}
+.tool-card:hover{transform:translateY(-3px);border-color:#6f67d9;background:#141d2d}
+.tool-view.visible{animation:pageEnter .22s ease both}
+@keyframes pageEnter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="sidebar" id="sidebar">
-<div class="brand"><div class="logo">AR</div><div class="brand-name">AR<span>Codes</span><small>DEVELOPER WORKSPACE</small></div></div>
+<div class="brand"><div class="logo" aria-label="ARCodes server logo"><span class="server-mark" aria-hidden="true">▤</span></div><div class="brand-name">AR<span>Codes</span><small>DEVELOPER WORKSPACE</small></div></div>
 <div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav">
 <button class="active" data-page="home"><span class="ico">⌂</span>Overview</button>
 <button data-page="ai"><span class="ico">✦</span>AI Studio <span class="tag" style="margin-left:auto">AI</span></button>
