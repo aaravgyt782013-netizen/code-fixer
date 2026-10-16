@@ -120,11 +120,25 @@ $('search').addEventListener('input',e=>{const q=e.target.value.trim().toLowerCa
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus()}if(e.key==='Escape')$('sidebar').classList.remove('open')});
 async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
  if(!prompt.trim()&&!code.trim()){status(statusId,'Add a prompt or code before running the task.','err');toast('Nothing to send yet');return}
- const btn=$(buttonId),old=btn.textContent;btn.disabled=true;btn.innerHTML='<span class="loading"><span class="spinner"></span> Working…</span>';showLoading(mode==='fix'?'Analyzing code…':'ARCodes AI is working…','Sending your request securely. Larger requests can take a little longer.');status(statusId,'Connecting to the AI service…');
- $(outId).textContent='Generating response…';
- try{const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language,prompt,code})});let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.error||'The AI request failed (HTTP '+res.status+').');if(!data.output||!String(data.output).trim())throw new Error('The AI returned an empty response. Please try again.');$(outId).textContent=data.output;lastOutput=data.output;status(statusId,'Response ready. Review the code and follow the verification steps before using it.','ok');toast('AI response ready');$(outId).scrollIntoView({behavior:'smooth',block:'nearest'})}
- catch(e){$(outId).textContent='Could not complete the AI request.\n\n'+(e.message||'Unexpected network error')+'\n\nTry again in a moment. If this continues, check the Vercel function logs and confirm GEMINI_API_KEY is configured in the project environment. Never paste your secret key into this page.';status(statusId,'Request failed. See the response panel for the next step.','err');toast('AI request failed')}
- finally{hideLoading();btn.disabled=false;btn.textContent=old}
+ const btn=$(buttonId),old=btn.textContent;
+ btn.disabled=true;btn.innerHTML='<span class="loading"><span class="spinner"></span> Working…</span>';
+ showLoading(mode==='fix'?'Analyzing code…':'ARCodes AI is working…','Waiting for the AI provider. This request will time out automatically if the service hangs.');
+ status(statusId,'Connecting to the AI service…');$(outId).textContent='Generating response…';
+ try{
+   const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language,prompt,code}),signal:AbortSignal.timeout(55000)});
+   let data={};try{data=await res.json()}catch{}
+   if(!res.ok)throw new Error(data.error||'The AI request failed (HTTP '+res.status+').');
+   if(!data.output||!String(data.output).trim())throw new Error('The AI returned an empty response. Please try again.');
+   $(outId).textContent=data.output;lastOutput=data.output;
+   const provider=data.provider?' Provider: '+data.provider+(data.model?' ('+data.model+')': '')+'.':'';
+   status(statusId,'Response ready.'+provider+' Review generated code before using it.','ok');
+   toast('AI response ready');$(outId).scrollIntoView({behavior:'smooth',block:'nearest'});
+ }catch(e){
+   const timedOut=e&&e.name==='TimeoutError';
+   const message=timedOut?'The request took too long and was stopped automatically. The AI provider may be overloaded, or the fallback key may be missing.':(e.message||'Unexpected network error');
+   $(outId).textContent='Could not complete the AI request.\n\n'+message+'\n\nYour page is responsive again. Tap Run AI to retry. If it keeps failing, check Vercel Runtime Logs and confirm GEMINI_API_KEY and (for fallback) OPENROUTER_API_KEY are configured in Production. Never paste secret keys into this page.';
+   status(statusId,'Request stopped. You can safely retry.','err');toast(timedOut?'AI request timed out':'AI request failed');
+ }finally{hideLoading();btn.disabled=false;btn.textContent=old}
 }
 $('ai-run').addEventListener('click',()=>callAI($('ai-mode').value,$('ai-language').value,$('ai-prompt').value,$('ai-code').value,'ai-output','ai-status','ai-run'));
 $('ai-clear').addEventListener('click',()=>{$('ai-prompt').value='';$('ai-code').value='';$('ai-output').innerHTML='<div class="emptyhint">Waiting for your prompt…</div>';status('ai-status','Ready.');toast('AI form cleared')});
