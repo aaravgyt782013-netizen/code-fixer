@@ -41,7 +41,7 @@
 <button class="active" data-page="home"><span class="ico">⌂</span> Overview</button>
 <button data-page="ai"><span class="ico">✳</span> AI Studio <span class="navhint">AI</span></button>
 <button data-page="fixer"><span class="ico">⌘</span> Code Fixer</button>
-<button data-page="playground"><span class="ico">▣</span> Live Playground</button>
+<button data-page="playground"><span class="ico">▣</span> Preview &amp; Run</button>
 </nav></div>
 <div><div class="navlabel">DEVELOPER TOOLS</div><nav class="nav">
 <button data-page="json"><span class="ico">{ }</span> JSON Formatter</button>
@@ -59,7 +59,7 @@
 <header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="iconbtn mobilemenu" id="menu" aria-label="Open menu">☰</button><div class="crumb">AR / <b id="crumb">Overview</b></div></div><div class="topright"><div class="search"><span>⌕</span><input id="search" placeholder="Find a tool…" aria-label="Find a tool"><span class="kbd" style="left:auto;right:8px;top:10px">⌘ K</span></div><button class="iconbtn" id="guide" aria-label="Show quick guide" title="Quick guide">?</button></div></header>
 
 <section class="page active" id="page-home">
-<div class="hero"><div class="eyebrow">● SYSTEM ONLINE // BUILD SOMETHING</div><h1>Your coding desk.<br><span class="glow">Your rules.</span></h1><p class="intro">Generate code, debug errors, understand unfamiliar projects, and use everyday developer tools from one focused workspace. Describe the outcome you want in plain language—ARCodes helps turn the idea into a practical starting point.</p><div class="heroactions"><button class="btn primary" data-go="ai">✳ Open AI Studio</button><button class="btn secondary" data-go="fixer">⌘ Fix my code</button><button class="btn secondary" data-go="playground">▣ Open playground</button></div></div>
+<div class="hero"><div class="eyebrow">● SYSTEM ONLINE // BUILD SOMETHING</div><h1>Your coding desk.<br><span class="glow">Your rules.</span></h1><p class="intro">Generate code, debug errors, understand unfamiliar projects, and use everyday developer tools from one focused workspace. Describe the outcome you want in plain language—ARCodes helps turn the idea into a practical starting point.</p><div class="heroactions"><button class="btn primary" data-go="ai">✳ Open AI Studio</button><button class="btn secondary" data-go="fixer">⌘ Fix my code</button><button class="btn secondary" data-go="playground">▣ Open preview workspace</button></div></div>
 <div class="stats"><div class="stat"><strong>AI + tools</strong><span>One workspace</span></div><div class="stat"><strong>Mobile-first</strong><span>Designed for small screens</span></div><div class="stat"><strong>Privacy aware</strong><span>Local tools stay local</span></div></div>
 <div class="sectionhead"><div><h2>Start with a task</h2><p>Choose what you want to do. You don't need to know the tool name.</p></div></div>
 <div class="toolgrid">
@@ -81,7 +81,7 @@
 
 <section class="page" id="page-ai">
 <div class="pagehead"><div class="eyebrow">✳ AI WORKSPACE</div><h1>What are we building?</h1><p>Describe the result you want in plain English. Pick a mode, add code only if it helps, and run the task. For larger projects, ask for filenames, complete files, dependencies, and deployment steps.</p></div>
-<div class="workspace"><div class="row2"><div class="field"><label for="ai-mode">TASK MODE</label><select id="ai-mode"><option value="generate">Build / generate code</option><option value="fix">Debug / fix code</option><option value="explain">Explain code</option><option value="review">Review for bugs & security</option><option value="refactor">Refactor / improve</option><option value="tests">Write tests</option><option value="convert">Convert to another language</option></select></div><div class="field"><label>SELECT LANGUAGE TAB</label><div class="language-tabs" id="language-tabs" role="tablist" aria-label="Code language"><button type="button" class="lang-tab active" data-lang="HTML" role="tab" aria-selected="true">HTML</button><button type="button" class="lang-tab" data-lang="CSS" role="tab" aria-selected="false">CSS</button><button type="button" class="lang-tab" data-lang="JavaScript" role="tab" aria-selected="false">JavaScript</button><button type="button" class="lang-tab" data-lang="TypeScript" role="tab" aria-selected="false">TypeScript</button><button type="button" class="lang-tab" data-lang="Python" role="tab" aria-selected="false">Python</button><button type="button" class="lang-tab" data-lang="Node.js" role="tab" aria-selected="false">Node.js</button><button type="button" class="lang-tab" data-lang="React" role="tab" aria-selected="false">React</button><button type="button" class="lang-tab" data-lang="Next.js" role="tab" aria-selected="false">Next.js</button><button type="button" class="lang-tab" data-lang="Discord.js" role="tab" aria-selected="false">Discord.js</button><button type="button" class="lang-tab" data-lang="Java" role="tab" aria-selected="false">Java</button><button type="button" class="lang-tab" data-lang="C++" role="tab" aria-selected="false">C++</button><button type="button" class="lang-tab" data-lang="SQL" role="tab" aria-selected="false">SQL</button><button type="button" class="lang-tab" data-lang="PHP" role="tab" aria-selected="false">PHP</button></div></div></div>
+<div class="workspace"><div class="row2"><div class="field"><label for="ai-mode">TASK MODE</label><select id="ai-mode"><option value="generate">Build / generate code</option><option value="fix">Debug / fix code</option><option value="explain">Explain code</option><option value="review">Review for bugs & security</option><option value="refactor">Refactor / improve</option><option value="tests">Write tests</option><option value="convert">Convert to another language</option></select></div><div class="field"><label for="ai-language">PROGRAMMING LANGUAGE</label><select id="ai-language"><option>HTML</option><option>CSS</option><option selected>JavaScript</option><option>TypeScript</option><option>Python</option><option>Node.js</option><option>React</option><option>Next.js</option><option>Discord.js</option><option>Java</option><option>C++</option><option>SQL</option><option>PHP</option><option>HTML, CSS and JavaScript</option></select><div class="help">Choose the primary language or framework for this task. The AI response will label each file separately.</div></div></div>
 <div class="field"><label for="ai-prompt">YOUR PROMPT</label><textarea id="ai-prompt" style="min-height:175px" placeholder="Example: Build a responsive gaming dashboard with a sidebar, stats cards, search, and a dark green hacker theme. Give me complete working files and explain how to deploy it."></textarea><div class="help">Tip: mention what it should do, who will use it, and any design or technical requirements. Do not paste passwords, API keys, or private data.</div></div>
 <div class="field"><label for="ai-overview">PROJECT OVERVIEW / EXTRA REQUIREMENTS (OPTIONAL)</label><textarea id="ai-overview" style="min-height:95px" placeholder="Add context, design preferences, extra features, project structure, constraints, or anything else Groq should consider."></textarea></div><div class="field"><label id="active-code-label" for="code-html">HTML CODE (OPTIONAL)</label><div class="code-tab-panels"><div class="code-tab-panel active" data-panel="HTML"><textarea id="code-html" data-code-editor="HTML" spellcheck="false" placeholder="Paste or draft your HTML here…"></textarea></div><div class="code-tab-panel" data-panel="CSS" hidden><textarea id="code-css" data-code-editor="CSS" spellcheck="false" placeholder="Paste or draft your CSS here…"></textarea></div><div class="code-tab-panel" data-panel="JavaScript" hidden><textarea id="code-javascript" data-code-editor="JavaScript" spellcheck="false" placeholder="Paste or draft your JavaScript here…"></textarea></div><div class="code-tab-panel" data-panel="TypeScript" hidden><textarea id="code-typescript" data-code-editor="TypeScript" spellcheck="false" placeholder="Paste or draft your TypeScript here…"></textarea></div><div class="code-tab-panel" data-panel="Python" hidden><textarea id="code-python" data-code-editor="Python" spellcheck="false" placeholder="Paste or draft your Python here…"></textarea></div><div class="code-tab-panel" data-panel="Node.js" hidden><textarea id="code-nodejs" data-code-editor="Node.js" spellcheck="false" placeholder="Paste or draft your Node.js code here…"></textarea></div><div class="code-tab-panel" data-panel="React" hidden><textarea id="code-react" data-code-editor="React" spellcheck="false" placeholder="Paste or draft your React component here…"></textarea></div><div class="code-tab-panel" data-panel="Next.js" hidden><textarea id="code-nextjs" data-code-editor="Next.js" spellcheck="false" placeholder="Paste or draft your Next.js code here…"></textarea></div><div class="code-tab-panel" data-panel="Discord.js" hidden><textarea id="code-discordjs" data-code-editor="Discord.js" spellcheck="false" placeholder="Paste or draft your Discord.js code here…"></textarea></div><div class="code-tab-panel" data-panel="Java" hidden><textarea id="code-java" data-code-editor="Java" spellcheck="false" placeholder="Paste or draft your Java here…"></textarea></div><div class="code-tab-panel" data-panel="C++" hidden><textarea id="code-cpp" data-code-editor="C++" spellcheck="false" placeholder="Paste or draft your C++ here…"></textarea></div><div class="code-tab-panel" data-panel="SQL" hidden><textarea id="code-sql" data-code-editor="SQL" spellcheck="false" placeholder="Paste or draft your SQL here…"></textarea></div><div class="code-tab-panel" data-panel="PHP" hidden><textarea id="code-php" data-code-editor="PHP" spellcheck="false" placeholder="Paste or draft your PHP here…"></textarea></div></div><div class="help">Each language tab keeps its own code. Switch tabs without losing what you typed. The selected language and all non-empty code boxes are sent to Groq.</div></div>
 <div class="actions"><button class="btn primary" id="ai-run">▶ Run AI task</button><button class="btn secondary" id="ai-clear">Clear form</button></div><p class="statusline" id="ai-status" aria-live="polite">Ready. AI tasks use the secured Groq server endpoint; your API key is not placed in the browser.</p></div>
@@ -95,7 +95,7 @@
 </section>
 
 <section class="page" id="page-playground">
-<div class="pagehead"><div class="eyebrow">▣ SANDBOX</div><h1>Live Playground</h1><p>Experiment with HTML, CSS, and JavaScript. The preview runs inside a sandboxed iframe. Don't put secret credentials in the example.</p></div>
+<div class="pagehead"><div class="eyebrow">▣ SANDBOX</div><h1>Preview &amp; Run</h1><p>Assemble a web project, run it in an isolated browser preview, and inspect the result before deployment. Temporary preview links are local to this browser session; public hosting requires a deployment provider.</p></div>
 <div class="workspace"><div class="actions" style="margin:0 0 15px"><button class="btn secondary" id="play-sample">Load sample</button><button class="btn primary" id="play-run">▶ Run preview</button><button class="btn secondary" id="play-clear">Clear</button><button class="btn secondary" id="play-open">↗ Open preview URL</button><button class="btn secondary" id="play-copy-url">Copy preview URL</button><button class="btn secondary" id="play-ai">Ask Gemini to review/improve</button></div><div class="row2"><div class="field"><label for="play-html">HTML</label><textarea id="play-html" style="min-height:190px" placeholder="<h1>Hello, world!</h1>"></textarea></div><div class="field"><label for="play-css">CSS</label><textarea id="play-css" style="min-height:190px" placeholder="body { font-family: sans-serif; }"></textarea></div></div><div class="field"><label for="play-js">JAVASCRIPT</label><textarea id="play-js" placeholder="document.querySelector('h1')?.addEventListener('click', () => alert('It works!'))"></textarea></div><p class="statusline" id="play-status" aria-live="polite">Preview has not run yet.</p><p class="statusline" id="play-ai-status" aria-live="polite">Gemini can review or improve your HTML, CSS, and JavaScript when requested.</p><div class="resultbox" id="play-ai-output" aria-live="polite"></div></div><div class="workspace"><h2>Preview output</h2><iframe id="play-frame" title="HTML playground preview" sandbox="allow-scripts" style="width:100%;height:330px;border:1px solid var(--line);border-radius:11px;background:white"></iframe></div>
 </section>
 
@@ -183,36 +183,18 @@ async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
 }
 
 let globalCodeLanguage='JavaScript';
-const universalLanguages=['HTML','CSS','JavaScript','TypeScript','Python','Node.js','React','Next.js','Discord.js','Java','C++','SQL','PHP'];
-function setGlobalLanguage(language){
- globalCodeLanguage=language;
- document.querySelectorAll('.global-language button').forEach(b=>{const active=b.dataset.globalLang===language;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});
- if($('fix-language')){const option=[...$('fix-language').options].find(o=>o.text===language||o.value===language);if(option)$('fix-language').value=option.value}
- if(typeof setCodeLanguage==='function'&&document.querySelector('.lang-tab[data-lang="'+language+'"]'))setCodeLanguage(language);
-}
-function installUniversalLanguageBars(){
- document.querySelectorAll('.page').forEach(page=>{
-  if(page.id==='page-ai'||page.querySelector('.global-language'))return;
-  const head=page.querySelector('.pagehead');if(!head)return;
-  const bar=document.createElement('div');bar.className='global-language';
-  const label=document.createElement('span');label.className='gl-label';label.textContent='ACTIVE CODE LANGUAGE';
-  bar.append(label);
-  universalLanguages.forEach(language=>{const b=document.createElement('button');b.type='button';b.dataset.globalLang=language;b.textContent=language;b.addEventListener('click',()=>setGlobalLanguage(language));bar.append(b)});
-  head.insertAdjacentElement('afterend',bar);
- });
-}
-
 let activeCodeLanguage='HTML';
 function setCodeLanguage(language){
  activeCodeLanguage=language;
- document.querySelectorAll('.lang-tab').forEach(tab=>{const active=tab.dataset.lang===language;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));});
- document.querySelectorAll('.code-tab-panel').forEach(panel=>{const active=panel.dataset.panel===language;panel.hidden=!active;panel.classList.toggle('active',active);});
- $('active-code-label').textContent=language.toUpperCase()+' CODE (OPTIONAL)';
- $('active-code-label').setAttribute('for',document.querySelector('[data-code-editor="'+language+'"]').id);
+ document.querySelectorAll('.lang-tab').forEach(tab=>{const active=tab.dataset.lang===language;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active))});
+ document.querySelectorAll('.code-tab-panel').forEach(panel=>{const active=panel.dataset.panel===language;panel.hidden=!active;panel.classList.toggle('active',active)});
+ const editor=document.querySelector('[data-code-editor="'+language+'"]');
+ if(editor){$('active-code-label').textContent=language.toUpperCase()+' CODE (OPTIONAL)';$('active-code-label').setAttribute('for',editor.id)}
 }
 document.querySelectorAll('.lang-tab').forEach(tab=>tab.addEventListener('click',()=>setCodeLanguage(tab.dataset.lang)));
-document.querySelectorAll('.lang-tab').forEach(tab=>tab.addEventListener('click',()=>{globalCodeLanguage=tab.dataset.lang;document.querySelectorAll('.global-language button').forEach(b=>{const a=b.dataset.globalLang===globalCodeLanguage;b.classList.toggle('active',a);b.setAttribute('aria-pressed',String(a))})}));
-installUniversalLanguageBars();setGlobalLanguage('HTML');
+$('ai-language').addEventListener('change',()=>{globalCodeLanguage=$('ai-language').value;const editorLanguage=globalCodeLanguage==='HTML, CSS and JavaScript'?'HTML':globalCodeLanguage;if(document.querySelector('.lang-tab[data-lang="'+editorLanguage+'"]'))setCodeLanguage(editorLanguage)});
+$('fix-language').addEventListener('change',()=>{globalCodeLanguage=$('fix-language').value});
+$('ai-language').value='JavaScript';globalCodeLanguage='JavaScript';setCodeLanguage('HTML');
 function collectLanguageCode(){
  return [...document.querySelectorAll('[data-code-editor]')].map(el=>({language:el.dataset.codeEditor,code:el.value.trim()})).filter(item=>item.code).map(item=>'--- '+item.language+' ---\\n'+item.code).join('\\n\\n');
 }
@@ -221,7 +203,7 @@ $('ai-run').addEventListener('click',()=>{
  const prompt=[$('ai-prompt').value.trim(),overview?'PROJECT OVERVIEW / EXTRA REQUIREMENTS:\\n'+overview:''].filter(Boolean).join('\\n\\n');
  const code=collectLanguageCode();
  const filled=[...document.querySelectorAll('[data-code-editor]')].filter(el=>el.value.trim());
- const language=filled.length>1?'Multi-language project ('+filled.map(el=>el.dataset.codeEditor).join(', ')+')':activeCodeLanguage;
+ const language=filled.length>1?'Multi-language project ('+filled.map(el=>el.dataset.codeEditor).join(', ')+')':$('ai-language').value;
  callAI($('ai-mode').value,language,prompt,code,'ai-output','ai-status','ai-run');
 });
 $('ai-clear').addEventListener('click',()=>{$('ai-prompt').value='';$('ai-overview').value='';document.querySelectorAll('[data-code-editor]').forEach(el=>el.value='');$('ai-output').innerHTML='<div class="emptyhint">Waiting for your prompt…</div>';status('ai-status','Ready.');toast('AI form cleared')});
