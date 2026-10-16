@@ -1,4 +1,4 @@
-// ARCodes AI endpoint: Gemini primary, OpenRouter free-model fallback.
+// ARCodes AI endpoint: bounded Gemini attempts with OpenRouter fallback.
 // Keep provider keys in Vercel Environment Variables only.
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -61,6 +61,7 @@ module.exports = async function handler(req, res) {
             upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
               method: 'POST',
               headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+              signal: AbortSignal.timeout(8000),
               body: JSON.stringify({
                 systemInstruction: { parts: [{ text: instructions }] },
                 contents: [{ role: 'user', parts: [{ text: task }] }],
@@ -108,6 +109,7 @@ module.exports = async function handler(req, res) {
           'HTTP-Referer': 'https://code-fixer-black.vercel.app',
           'X-Title': 'ARCodes'
         },
+        signal: AbortSignal.timeout(12000),
         body: JSON.stringify({
           model: 'openrouter/free',
           messages: [
