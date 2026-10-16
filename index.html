@@ -139,16 +139,41 @@ $('color-hex').addEventListener('input',e=>{if(updateColor(e.target.value)){} })
 $('schema-sample').onclick=()=>{$('schema-data').value=JSON.stringify({name:'Aarav',age:16,roles:['builder']},null,2);$('schema-rule').value=JSON.stringify({type:'object',required:['name'],properties:{name:{type:'string',minLength:1},age:{type:'integer',minimum:0},roles:{type:'array',items:{type:'string'}}}},null,2);$('schema-output').textContent='Sample loaded. Click Validate JSON.'};
 function validateSchemaValue(value,schema,path,issues){
  if(!schema||typeof schema!=='object'||Array.isArray(schema)){issues.push(path+': schema must be an object');return}
- const typeOf=v=>v===null?'null':Array.isArray(v)?'array':Number.isInteger(v)?'integer':typeof v;
- const actual=typeOf(value);let expected=schema.type;
- if(expected){const allowed=Array.isArray(expected)?expected:[expected];const compatible=allowed.some(t=>t==='number'?typeof value==='number'&&Number.isFinite(value):t==='integer'?Number.isInteger(value):t===actual);if(!compatible){issues.push(path+': expected '+allowed.join(' or ')+', got '+actual);return}}
+ const actual=value===null?'null':Array.isArray(value)?'array':Number.isInteger(value)?'integer':typeof value, expected=schema.type;
+ if(expected){const allowed=Array.isArray(expected)?expected:[expected];const ok=allowed.some(t=>t==='number'?typeof value==='number'&&Number.isFinite(value):t==='integer'?Number.isInteger(value):t===actual);if(!ok){issues.push(path+': expected '+allowed.join(' or ')+', got '+actual);return}}
  if(Array.isArray(schema.enum)&&!schema.enum.some(v=>JSON.stringify(v)===JSON.stringify(value)))issues.push(path+': value is not in enum');
  if(typeof value==='string'){if(Number.isFinite(schema.minLength)&&value.length<schema.minLength)issues.push(path+': shorter than minLength '+schema.minLength);if(Number.isFinite(schema.maxLength)&&value.length>schema.maxLength)issues.push(path+': longer than maxLength '+schema.maxLength);if(typeof schema.pattern==='string'){try{if(!(new RegExp(schema.pattern)).test(value))issues.push(path+': does not match pattern')}catch{issues.push(path+': schema pattern is invalid')}}}
  if(typeof value==='number'){if(Number.isFinite(schema.minimum)&&value<schema.minimum)issues.push(path+': below minimum '+schema.minimum);if(Number.isFinite(schema.maximum)&&value>schema.maximum)issues.push(path+': above maximum '+schema.maximum)}
  if(value&&typeof value==='object'&&!Array.isArray(value)){for(const key of (Array.isArray(schema.required)?schema.required:[]))if(!Object.prototype.hasOwnProperty.call(value,key))issues.push(path+': missing required property "'+key+'"');if(schema.properties&&typeof schema.properties==='object')for(const [key,sub] of Object.entries(schema.properties))if(Object.prototype.hasOwnProperty.call(value,key))validateSchemaValue(value[key],sub,path+'.'+key,issues)}
- if(Array.isArray(value)&&schema.items) value.forEach((item,i)=>validateSchemaValue(item,schema.items,path+'['+i+']',issues));
+ if(Array.isArray(value)&&schema.items)value.forEach((item,i)=>validateSchemaValue(item,schema.items,path+'['+i+']',issues));
 }
-$('schema-run').onclick=()=>{try{const data=JSON.parse($('schema-data').value),schema=JSON.parse($('schema-rule').value),issues=[];validateSchemaValue(data,schema,'
+$('schema-run').onclick=()=>{try{const data=JSON.parse($('schema-data').value),schema=JSON.parse($('schema-rule').value),issues=[];validateSchemaValue(data,schema,'$',issues);$('schema-output').textContent=issues.length?'✕ Validation failed ('+issues.length+')'+String.fromCharCode(10,10)+issues.map((x,i)=>(i+1)+'. '+x).join(String.fromCharCode(10)):'✓ JSON matches the supported schema rules.';toast(issues.length?'Schema validation found issues':'JSON schema validation passed')}catch(e){$('schema-output').textContent='Could not parse JSON or schema.'+String.fromCharCode(10)+e.message;toast('Check the JSON and schema syntax')}};
+const ignoreTemplates={
+node:'# Node dependencies\nnode_modules/\n\n# Build output\ndist/\nbuild/\n.next/\ncoverage/\n\n# Environment secrets\n.env\n.env.*\n!.env.example\n\n# Logs\n*.log\nnpm-debug.log*\nyarn-debug.log*\n\n# Local editor files\n.vscode/\n.DS_Store\n',
+python:'# Python bytecode\n__pycache__/\n*.py[cod]\n.venv/\nvenv/\nenv/\n\n# Packaging and tests\ndist/\nbuild/\n*.egg-info/\n.pytest_cache/\n.coverage\nhtmlcov/\n\n# Environment secrets\n.env\n.env.*\n!.env.example\n',
+java:'# Java compiled files\n*.class\n*.jar\n*.war\ntarget/\nbuild/\n.gradle/\n.idea/\n*.iml\n.DS_Store\n',
+dotnet:'# .NET build output\nbin/\nobj/\n*.user\n*.suo\n.vs/\npackages/\n*.nupkg\nappsettings.Local.json\n',
+rust:'# Rust build output\ntarget/\n.env\n.env.*\n!.env.example\n.vscode/\n.DS_Store\n',
+go:'# Go test output\n*.exe\n*.test\n*.out\n.env\n.env.*\n!.env.example\n',
+php:'# PHP dependencies\n/vendor/\n/node_modules/\n/public/storage\n/storage/*.key\n/bootstrap/cache/*\n.env\n.env.*\n!.env.example\n',
+ruby:'# Ruby generated files\n/vendor/bundle/\n/.bundle/\n/log/\n/tmp/\n.env\n.env.*\n!.env.example\n',
+android:'# Android build output\n.gradle/\nbuild/\n*/build/\nlocal.properties\n.idea/\n*.iml\n*.jks\n*.keystore\n',
+unity:'# Unity generated files\n[Ll]ibrary/\n[Tt]emp/\n[Oo]bj/\n[Bb]uild/\n[Bb]uilds/\n[Ll]ogs/\n[Uu]ser[Ss]ettings/\n',
+unreal:'# Unreal generated files\nBinaries/\nDerivedDataCache/\nIntermediate/\nSaved/\n.vs/\n.idea/\n*.sln\n',
+vscode:'# VS Code local workspace settings\n.vscode/*\n!.vscode/extensions.json\n!.vscode/launch.json\n!.vscode/tasks.json\n',
+mac:'# macOS metadata\n.DS_Store\n.AppleDouble\n.LSOverride\n._*\n.Spotlight-V100\n.Trashes\n',
+windows:'# Windows generated files\nThumbs.db\nehthumbs.db\nDesktop.ini\n$RECYCLE.BIN/\n',
+combined:'# Node and Python build output\nnode_modules/\ndist/\nbuild/\ncoverage/\n.next/\n__pycache__/\n*.py[cod]\n.venv/\nvenv/\n\n# Environment secrets\n.env\n.env.*\n!.env.example\n\n# Logs and OS/editor files\n*.log\n.vscode/\n.DS_Store\nThumbs.db\n'
+};
+$('ignore-generate').onclick=()=>{$('ignore-output').value=ignoreTemplates[$('ignore-type').value]||'';toast('.gitignore template generated')};
+$('ignore-type').addEventListener('change',()=>$('ignore-output').value=ignoreTemplates[$('ignore-type').value]||'');
+const SNIPPET_KEY='arcodes-snippets-v1';
+function loadSnippets(){try{const v=JSON.parse(localStorage.getItem(SNIPPET_KEY)||'[]');return Array.isArray(v)?v:[]}catch{return []}}
+function saveSnippets(items){try{localStorage.setItem(SNIPPET_KEY,JSON.stringify(items));return true}catch{return false}}
+function renderSnippets(){const root=$('snippet-list');root.replaceChildren();const items=loadSnippets();$('snippet-count').textContent=items.length+' saved snippet'+(items.length===1?'':'s')+' in this browser';if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='No snippets saved yet. Add your first reusable snippet above.';root.append(empty);return}items.forEach(item=>{const card=document.createElement('article');card.className='tool-card';card.style.minHeight='0';const title=document.createElement('h3');title.textContent=item.title;const meta=document.createElement('p');meta.textContent=item.language+' · '+new Date(item.createdAt).toLocaleDateString();const preview=document.createElement('pre');preview.className='result';preview.style.minHeight='0';preview.style.maxHeight='140px';preview.textContent=item.code;const actions=document.createElement('div');actions.className='work-actions';const copy=document.createElement('button');copy.className='small-btn';copy.textContent='Copy code';copy.onclick=()=>{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(item.code).then(()=>toast('Snippet copied')).catch(()=>toast('Clipboard permission unavailable'))}else{toast('Clipboard unavailable in this browser')}};const remove=document.createElement('button');remove.className='small-btn';remove.textContent='Delete';remove.onclick=()=>{const next=loadSnippets().filter(x=>x.id!==item.id);if(saveSnippets(next)){renderSnippets();toast('Snippet deleted')}else{toast('Browser storage is unavailable')}};actions.append(copy,remove);card.append(title,meta,preview,actions);root.append(card)})}
+$('snippet-save').onclick=()=>{const title=$('snippet-title').value.trim(),code=$('snippet-code').value;if(!title||!code.trim()){toast('Enter a title and code first');return}const items=loadSnippets();items.unshift({id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),title,language:$('snippet-language').value,code,createdAt:Date.now()});if(saveSnippets(items)){renderSnippets();$('snippet-title').value='';$('snippet-code').value='';toast('Snippet saved locally')}else{toast('Could not save: browser storage unavailable')}};
+$('snippet-clear').onclick=()=>{$('snippet-title').value='';$('snippet-code').value=''};
+renderSnippets();
 $('date-input').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus()}if(e.key==='Escape')$('sidebar').classList.remove('open')});
 </script>
