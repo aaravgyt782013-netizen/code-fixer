@@ -7,8 +7,8 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Use POST for AI requests.' });
   }
-  if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
-    return res.status(503).json({ error: 'No AI provider is configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY in Vercel Environment Variables, then redeploy.' });
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY) {
+    return res.status(503).json({ error: 'No AI provider is configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in Vercel Environment Variables, then redeploy.' });
   }
   let body = req.body;
   if (typeof body === 'string') {
@@ -98,6 +98,52 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // Secondary provider: OpenAI API. Keep the key server-side in Vercel only.
+  // This paid API is independent of a ChatGPT subscription and requires API billing/quota.
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
+      const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: instructions + '\\n\\nFor code-generation tasks, provide the complete implementation in clearly labeled fenced code blocks. Do not return safety labels or provider metadata.' },
+            { role: 'user', content: task }
+          ],
+          max_completion_tokens: 6000,
+          temperature: 0.2
+        })
+      });
+      const data = await upstream.json().catch(() => ({}));
+      if (upstream.ok) {
+        const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+        const output = choice && choice.message && typeof choice.message.content === 'string'
+          ? choice.message.content.trim()
+          : '';
+        if (output && !/^(user safety:\\s*(safe|unsafe)|safety classification:)/i.test(output)) {
+          return res.status(200).json({
+            output,
+            provider: 'openai',
+            model: data.model || model,
+            fallback: true
+          });
+        }
+        geminiMessage += ' OpenAI returned no usable text.';
+      } else {
+        const detail = data && data.error && data.error.message ? data.error.message : 'HTTP ' + upstream.status;
+        geminiMessage += ' OpenAI: ' + String(detail).slice(0, 220);
+      }
+    } catch {
+      geminiMessage += ' OpenAI request timed out or could not connect.';
+    }
+  }
+
   // Secondary provider: try coding-focused free models individually, then OpenRouter's free router.
   // Free model availability changes frequently; only return a response when readable text exists.
   if (process.env.OPENROUTER_API_KEY) {
@@ -167,7 +213,7 @@ module.exports = async function handler(req, res) {
       }
     }
     return res.status(503).json({
-      error: 'Gemini is unavailable and all configured OpenRouter free-model attempts failed. ' +
+      error: 'Gemini/OpenAI providers are unavailable and all configured OpenRouter free-model attempts failed. ' +
         failures.join(' | ').slice(0, 650) +
         (geminiMessage ? ' Gemini: ' + geminiMessage.slice(0, 160) : ''),
       retryable: true
@@ -175,7 +221,7 @@ module.exports = async function handler(req, res) {
   }
 
   return res.status(503).json({
-    error: 'Gemini is temporarily unavailable. Add OPENROUTER_API_KEY in Vercel Environment Variables to enable the alternate AI fallback, then redeploy. Free model capacity can vary.',
+    error: 'Gemini is temporarily unavailable. Configure OPENAI_API_KEY with active API billing, or OPENROUTER_API_KEY for alternate provider fallback, then redeploy.',
     retryable: geminiTransient
   });
 };
