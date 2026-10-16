@@ -1,5 +1,4 @@
-// ARCodes AI endpoint: bounded Gemini attempts with OpenRouter fallback.
-// Keep provider keys in Vercel Environment Variables only.
+// ARCodes AI endpoint: OpenAI API only. Provider credentials stay server-side.
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -7,9 +6,10 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Use POST for AI requests.' });
   }
-  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY) {
-    return res.status(503).json({ error: 'No AI provider is configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in Vercel Environment Variables, then redeploy.' });
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'OpenAI is not configured. Add OPENAI_API_KEY in Vercel Environment Variables for Production, then redeploy.' });
   }
+
   let body = req.body;
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON request.' }); }
@@ -22,6 +22,7 @@ module.exports = async function handler(req, res) {
   if (!prompt && !code) return res.status(400).json({ error: 'Describe what you need or paste code first.' });
   const allowedModes = new Set(['generate','fix','explain','review','refactor','tests','convert']);
   if (!allowedModes.has(mode)) return res.status(400).json({ error: 'Unsupported assistant mode.' });
+
   const instructions = [
     'You are ARCodes AI, a careful software engineering assistant.',
     'Respond like a senior software engineer: be precise, structured, evidence-aware, and useful to a developer who needs both understanding and working code.',
@@ -39,189 +40,60 @@ module.exports = async function handler(req, res) {
     'The requested programming language or format is: ' + language + '.',
     'Task mode: ' + mode + '.'
   ].join('\n');
+
   const task = [
     prompt ? 'USER REQUEST:\n' + prompt : '',
     code ? 'SOURCE CODE:\n' + code : ''
   ].filter(Boolean).join('\n\n');
-  let geminiMessage = 'Gemini is not configured.';
-  let geminiTransient = true;
 
-  // Primary provider: Google Gemini. Retry transient failures, then fall back.
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const primaryModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
-      if (!/^[a-zA-Z0-9._-]+$/.test(primaryModel)) {
-        return res.status(500).json({ error: 'GEMINI_MODEL contains an invalid model name.' });
-      }
-      const geminiModels = [primaryModel];
-      if (primaryModel !== 'gemini-3.6-flash') geminiModels.push('gemini-3.6-flash');
-      for (const model of geminiModels) {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          let upstream;
-          try {
-            upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-              method: 'POST',
-              headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
-              signal: AbortSignal.timeout(8000),
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: instructions }] },
-                contents: [{ role: 'user', parts: [{ text: task }] }],
-                generationConfig: { maxOutputTokens: 6000, temperature: 0.3 }
-              })
-            });
-          } catch {
-            geminiMessage = 'Could not reach Google Gemini.';
-            if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
-            continue;
-          }
-          const data = await upstream.json().catch(() => ({}));
-          if (upstream.ok) {
-            const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
-            const output = candidate && candidate.content && Array.isArray(candidate.content.parts)
-              ? candidate.content.parts.filter(part => typeof part.text === 'string').map(part => part.text).join('\n').trim()
-              : '';
-            if (output) return res.status(200).json({ output, provider: 'gemini', model });
-            geminiMessage = 'Gemini returned no text response.';
-            break;
-          }
-          geminiMessage = data && data.error && data.error.message ? data.error.message : 'The Gemini request failed.';
-          geminiTransient = [408, 429, 500, 502, 503, 504].includes(upstream.status);
-          if (!geminiTransient) {
-            const statusCode = upstream.status === 400 || upstream.status === 403 ? 502 : upstream.status;
-            return res.status(statusCode).json({ error: geminiMessage.slice(0, 500) });
-          }
-          if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
-        }
-      }
-    } catch {
-      geminiMessage = 'Gemini request failed unexpectedly.';
+  try {
+    const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
+    if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
+      return res.status(500).json({ error: 'OPENAI_MODEL contains an invalid model name.' });
     }
-  }
+    const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      signal: AbortSignal.timeout(45000),
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: instructions + '\n\nFor code-generation tasks, provide the complete implementation in clearly labeled fenced code blocks. Do not return safety labels or provider metadata.' },
+          { role: 'user', content: task }
+        ],
+        max_completion_tokens: 6000,
+        temperature: 0.2
+      })
+    });
 
-  // Secondary provider: OpenAI API. Keep the key server-side in Vercel only.
-  // This paid API is independent of a ChatGPT subscription and requires API billing/quota.
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
-      const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        signal: AbortSignal.timeout(15000),
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: instructions + '\\n\\nFor code-generation tasks, provide the complete implementation in clearly labeled fenced code blocks. Do not return safety labels or provider metadata.' },
-            { role: 'user', content: task }
-          ],
-          max_completion_tokens: 6000,
-          temperature: 0.2
-        })
+    const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      const detail = data && data.error && data.error.message ? data.error.message : 'OpenAI API request failed (HTTP ' + upstream.status + ').';
+      const statusCode = [400, 401, 403, 404, 429].includes(upstream.status) ? 502 : 503;
+      return res.status(statusCode).json({
+        error: 'OpenAI could not complete this request: ' + String(detail).slice(0, 450),
+        retryable: upstream.status === 429 || upstream.status >= 500
       });
-      const data = await upstream.json().catch(() => ({}));
-      if (upstream.ok) {
-        const choice = Array.isArray(data.choices) ? data.choices[0] : null;
-        const output = choice && choice.message && typeof choice.message.content === 'string'
-          ? choice.message.content.trim()
-          : '';
-        if (output && !/^(user safety:\\s*(safe|unsafe)|safety classification:)/i.test(output)) {
-          return res.status(200).json({
-            output,
-            provider: 'openai',
-            model: data.model || model,
-            fallback: true
-          });
-        }
-        geminiMessage += ' OpenAI returned no usable text.';
-      } else {
-        const detail = data && data.error && data.error.message ? data.error.message : 'HTTP ' + upstream.status;
-        geminiMessage += ' OpenAI: ' + String(detail).slice(0, 220);
-      }
-    } catch {
-      geminiMessage += ' OpenAI request timed out or could not connect.';
     }
-  }
 
-  // Secondary provider: try coding-focused free models individually, then OpenRouter's free router.
-  // Free model availability changes frequently; only return a response when readable text exists.
-  if (process.env.OPENROUTER_API_KEY) {
-    const models = [
-      'qwen/qwen3-coder:free',
-      'deepseek/deepseek-r1:free',
-      'openrouter/free'
-    ];
-    const failures = [];
-    for (const model of models) {
-      try {
-        const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://code-fixer-black.vercel.app',
-            'X-Title': 'ARCodes'
-          },
-          signal: AbortSignal.timeout(12000),
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: instructions + '\n\nFor code-generation tasks, output complete working code in a fenced code block. Do not output safety labels, hidden reasoning, or provider metadata.' },
-              { role: 'user', content: task }
-            ],
-            max_tokens: 6000,
-            temperature: 0.2
-          })
-        });
-        const data = await upstream.json().catch(() => ({}));
-        if (!upstream.ok) {
-          const detail = data && data.error && data.error.message ? data.error.message : 'HTTP ' + upstream.status;
-          failures.push(model + ': ' + String(detail).slice(0, 140));
-          continue;
-        }
-        const choice = Array.isArray(data.choices) ? data.choices[0] : null;
-        const message = choice && choice.message ? choice.message : {};
-        const content = message.content;
-        let output = '';
-        if (typeof content === 'string') {
-          output = content.trim();
-        } else if (Array.isArray(content)) {
-          output = content.map(part => {
-            if (typeof part === 'string') return part;
-            if (part && typeof part.text === 'string') return part.text;
-            if (part && part.type === 'text' && typeof part.content === 'string') return part.content;
-            return '';
-          }).filter(Boolean).join('\n').trim();
-        }
-        // Some reasoning models put their answer in a separate field.
-        if (!output && typeof message.reasoning === 'string') {
-          output = message.reasoning.trim();
-        }
-        if (!output || /^(user safety:\s*(safe|unsafe)|safety classification:)/i.test(output)) {
-          failures.push(model + ': no usable code/text response');
-          continue;
-        }
-        return res.status(200).json({
-          output,
-          provider: 'openrouter',
-          model: data.model || model,
-          fallback: true
-        });
-      } catch {
-        failures.push(model + ': request timed out or network error');
-      }
+    const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+    const output = choice && choice.message && typeof choice.message.content === 'string'
+      ? choice.message.content.trim()
+      : '';
+    if (!output) {
+      return res.status(502).json({ error: 'OpenAI returned an empty response. Try a shorter prompt or run the task again.', retryable: true });
     }
+    return res.status(200).json({ output, provider: 'openai', model: data.model || model });
+  } catch (error) {
+    const timedOut = error && (error.name === 'TimeoutError' || error.name === 'AbortError');
     return res.status(503).json({
-      error: 'Gemini/OpenAI providers are unavailable and all configured OpenRouter free-model attempts failed. ' +
-        failures.join(' | ').slice(0, 650) +
-        (geminiMessage ? ' Gemini: ' + geminiMessage.slice(0, 160) : ''),
+      error: timedOut
+        ? 'The OpenAI request timed out. Try a shorter prompt or try again.'
+        : 'Could not connect to the OpenAI API. Check Vercel Runtime Logs and try again.',
       retryable: true
     });
   }
-
-  return res.status(503).json({
-    error: 'Gemini is temporarily unavailable. Configure OPENAI_API_KEY with active API billing, or OPENROUTER_API_KEY for alternate provider fallback, then redeploy.',
-    retryable: geminiTransient
-  });
 };
