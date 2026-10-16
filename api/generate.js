@@ -98,39 +98,45 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Secondary provider: OpenRouter routes to an available free model.
-  // Requires OPENROUTER_API_KEY in Vercel; free capacity and limits can vary.
+  // Secondary provider: try coding-focused free models individually, then OpenRouter's free router.
+  // Free model availability changes frequently; only return a response when readable text exists.
   if (process.env.OPENROUTER_API_KEY) {
-    try {
-      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://code-fixer-black.vercel.app',
-          'X-Title': 'ARCodes'
-        },
-        signal: AbortSignal.timeout(12000),
-        body: JSON.stringify({
-          // Prefer coding-capable free models; OpenRouter can fall through to the next model.
-          models: ['qwen/qwen3-coder:free', 'deepseek/deepseek-r1:free'],
-          model: 'qwen/qwen3-coder:free',
-          messages: [
-            { role: 'system', content: instructions },
-            { role: 'user', content: task }
-          ],
-          max_tokens: 6000,
-          // Ask for a direct developer-facing answer rather than provider metadata.
-          temperature: 0.3
-        })
-      });
-      const data = await upstream.json().catch(() => ({}));
-      if (upstream.ok) {
-        const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
+    const models = [
+      'qwen/qwen3-coder:free',
+      'deepseek/deepseek-r1:free',
+      'openrouter/free'
+    ];
+    const failures = [];
+    for (const model of models) {
+      try {
+        const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://code-fixer-black.vercel.app',
+            'X-Title': 'ARCodes'
+          },
+          signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: instructions + '\\n\\nFor code-generation tasks, output complete working code in a fenced code block. Do not output safety labels, hidden reasoning, or provider metadata.' },
+              { role: 'user', content: task }
+            ],
+            max_tokens: 6000,
+            temperature: 0.2
+          })
+        });
+        const data = await upstream.json().catch(() => ({}));
+        if (!upstream.ok) {
+          const detail = data && data.error && data.error.message ? data.error.message : 'HTTP ' + upstream.status;
+          failures.push(model + ': ' + String(detail).slice(0, 140));
+          continue;
+        }
+        const choice = Array.isArray(data.choices) ? data.choices[0] : null;
         const message = choice && choice.message ? choice.message : {};
         const content = message.content;
-        // OpenAI-compatible providers may return content as either a string
-        // or an array of text parts. Normalize both formats safely.
         let output = '';
         if (typeof content === 'string') {
           output = content.trim();
@@ -140,39 +146,32 @@ module.exports = async function handler(req, res) {
             if (part && typeof part.text === 'string') return part.text;
             if (part && part.type === 'text' && typeof part.content === 'string') return part.content;
             return '';
-          }).filter(Boolean).join('\n').trim();
+          }).filter(Boolean).join('\\n').trim();
         }
-        if (output) {
-          return res.status(200).json({
-            output,
-            provider: 'openrouter',
-            model: data.model || 'openrouter/free',
-            fallback: true
-          });
+        // Some reasoning models put their answer in a separate field.
+        if (!output && typeof message.reasoning === 'string') {
+          output = message.reasoning.trim();
         }
-        // Avoid exposing provider payloads or secrets; include safe metadata
-        // so the next failure is diagnosable from the UI.
-        const finishReason = choice && choice.finish_reason ? String(choice.finish_reason) : 'unknown';
-        const responseId = data && typeof data.id === 'string' ? data.id : '';
-        return res.status(502).json({
-          error: 'OpenRouter returned no readable text (finish reason: ' + finishReason + '). Try again; if repeated, check model availability in OpenRouter.',
+        if (!output || /^(user safety:\\s*(safe|unsafe)|safety classification:)/i.test(output)) {
+          failures.push(model + ': no usable code/text response');
+          continue;
+        }
+        return res.status(200).json({
+          output,
           provider: 'openrouter',
-          model: data && data.model ? data.model : 'openrouter/free',
-          responseId: responseId.slice(0, 100),
-          retryable: true
+          model: data.model || model,
+          fallback: true
         });
+      } catch {
+        failures.push(model + ': request timed out or network error');
       }
-      const detail = data && data.error && data.error.message ? data.error.message : 'OpenRouter request failed.';
-      return res.status(503).json({
-        error: 'Gemini is unavailable and the OpenRouter fallback also failed. ' + detail.slice(0, 280) + (geminiMessage ? ' Gemini: ' + geminiMessage.slice(0, 180) : ''),
-        retryable: true
-      });
-    } catch {
-      return res.status(503).json({
-        error: 'Gemini is unavailable and ARCodes could not reach OpenRouter. Check the OPENROUTER_API_KEY setting and try again.',
-        retryable: true
-      });
     }
+    return res.status(503).json({
+      error: 'Gemini is unavailable and all configured OpenRouter free-model attempts failed. ' +
+        failures.join(' | ').slice(0, 650) +
+        (geminiMessage ? ' Gemini: ' + geminiMessage.slice(0, 160) : ''),
+      retryable: true
+    });
   }
 
   return res.status(503).json({
