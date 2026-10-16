@@ -48,10 +48,10 @@ module.exports = async function handler(req, res) {
 
   try {
     const model = (process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
-    if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
+    if (!/^[a-zA-Z0-9._/-]+$/.test(model)) {
       return res.status(500).json({ error: 'GROQ_MODEL contains an invalid model name.' });
     }
-    const upstream = await fetch('https://api.api.groq.com/openai/v1/chat/completions', {
+    const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
