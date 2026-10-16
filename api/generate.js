@@ -31,6 +31,7 @@ module.exports = async function handler(req, res) {
     'For generate/build requests, produce the actual requested implementation, not just advice or a high-level outline. Include complete code that can be copied, file names, dependencies, setup, and integration steps. If the task spans multiple files, label each file and provide each complete file or clearly identify any unavoidable omissions.',
     'For every task, put the most useful direct answer first. Keep the explanation understandable for a beginner, then provide code, examples, and verification steps as relevant. Never replace requested code with generic descriptions.',
     'For code-generation requests, return the actual implementation in clearly labeled fenced code blocks using the requested language. Do not output internal analysis, moderation labels, safety classifications, routing metadata, or phrases such as "User Safety: safe". If the request is allowed, answer the request directly. If a brief explanation helps, put it outside the code block.',
+    'CRITICAL MULTI-FILE FORMATTING: If the solution contains multiple files, output EACH file in its OWN separate fenced code block. Put the exact filename on a separate plain-text line immediately before that block (for example, index.html, style.css, script.js). Never place two files in one code block, never concatenate HTML/CSS/JS into one block, and never omit the closing fence between files. Use the correct fence language (html, css, javascript, python, etc.).',
     'If key requirements are missing, make safe, clearly stated assumptions and still deliver a useful first implementation rather than asking unnecessary follow-up questions.',
     'When fixing code, preserve intended behavior, provide the smallest safe change where possible, explain important changes, and include practical test cases plus exact verification steps.',
     'For code reviews, cover correctness, security, performance, edge cases, maintainability, and operational reliability. Prioritize findings and tie them to the supplied code.',
@@ -61,7 +62,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: instructions + '\n\nFor code-generation tasks, provide the complete implementation in clearly labeled fenced code blocks. Do not return safety labels or provider metadata.' },
+          { role: 'system', content: instructions + '\n\nFor code-generation tasks, provide the complete implementation in clearly labeled fenced code blocks. For multiple files, use one separate fenced code block per file, with the filename immediately above each block; never combine files into one block. Do not return safety labels or provider metadata.' },
           { role: 'user', content: task }
         ],
         max_completion_tokens: 6000,
