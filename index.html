@@ -12,6 +12,25 @@
 @media(max-width:1050px){.toolgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.app{grid-template-columns:220px minmax(0,1fr)}.ai-layout{grid-template-columns:1fr}.ai-output{min-height:230px;max-height:none}}
 @media(max-width:720px){.app{display:block}.sidebar{position:fixed;left:0;top:0;bottom:0;width:min(290px,85vw);height:100dvh;transform:translateX(-105%);transition:transform .22s;box-shadow:18px 0 40px #0008}.sidebar.open{transform:translateX(0)}.main{padding:15px 14px 38px}.topbar{margin-bottom:18px}.mobilemenu{display:grid}.search{width:min(200px,48vw)}.search input{font-size:11px}.kbd{display:none}.toolgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.toolcard{padding:13px}.toolcard p{font-size:10.5px}.stats{gap:8px}.stat{padding:11px}.stat strong{font-size:18px}.stat span{font-size:10px}.hero{padding:22px 18px}.hero:after{display:none}.intro{font-size:13px}.row2{grid-template-columns:1fr}.pagehead{margin-bottom:16px}.workspace{padding:14px}.foot{margin-top:26px}.mobileonly{display:inline}.desktoponly{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Polished universal language controls and AI code cards */
+.global-language{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,#101c25e8,#0b1219e8);box-shadow:0 8px 28px #0002}
+.global-language .gl-label{font-size:10px;letter-spacing:1.3px;font-weight:800;color:var(--muted);margin-right:4px}
+.global-language button{border:1px solid #253b45;background:#0a1219;color:#9fb2bb;border-radius:9px;padding:7px 10px;font-size:11px;transition:transform .18s,border-color .18s,background .18s,color .18s}
+.global-language button:hover{transform:translateY(-1px);border-color:#4b8d7b;color:#fff}
+.global-language button.active{background:linear-gradient(135deg,#174734,#102b29);border-color:#3b9c70;color:var(--green);box-shadow:0 0 18px #72f7b510}
+.code-result-list{display:grid;gap:12px}
+.ai-prose{white-space:pre-wrap;line-height:1.7;color:#d5e3e7;overflow-wrap:anywhere}
+.ai-code-card{min-width:0;border:1px solid #263c47;border-radius:13px;overflow:hidden;background:#080e14;animation:codeReveal .28s ease both}
+.ai-code-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:linear-gradient(90deg,#11231f,#101923);border-bottom:1px solid #20343c}
+.ai-code-lang{font-size:11px;font-weight:800;letter-spacing:.7px;color:var(--green);text-transform:uppercase}
+.ai-code-copy{border:1px solid #31594b;background:#11251e;color:#b9f9d8;border-radius:8px;padding:6px 10px;font-size:11px;white-space:nowrap}
+.ai-code-copy:hover{background:#1b3a2e}
+.ai-code-card pre{margin:0;padding:15px;overflow:auto;max-height:560px;color:#dcecf0;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2;white-space:pre}
+.ai-output{transition:border-color .2s,box-shadow .2s}
+@keyframes codeReveal{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:650px){.global-language{gap:6px;padding:10px}.global-language .gl-label{width:100%;margin-bottom:2px}.global-language button{padding:7px 8px;font-size:10px}.ai-code-card pre{font-size:11px;padding:12px}}
+
 </style>
 </head>
 <body>
@@ -110,6 +129,30 @@ function showLoading(title='Working…',text='Please wait while the task complet
 function hideLoading(){$('loading').classList.remove('show')}
 function runLocal(title,fn){showLoading(title,'Processing locally in your browser…');requestAnimationFrame(()=>setTimeout(()=>{try{fn()}catch(e){toast(e.message||'Something went wrong. Check your input.')}finally{hideLoading()}},80))}
 function setOutput(id,value){$(id).textContent=value;lastOutput=value}
+function renderAIOutput(id,raw){
+ const root=$(id);root.replaceChildren();
+ const source=String(raw||'');
+ const re=/```([^\\n`]*)(?:\\r?\\n)([\\s\\S]*?)```/g;
+ let cursor=0,match,blocks=0;
+ while((match=re.exec(source))){
+  const before=source.slice(cursor,match.index).trim();
+  if(before){const p=document.createElement('div');p.className='ai-prose';p.textContent=before;root.append(p)}
+  const lang=(match[1]||'Code').trim().replace(/^language-/i,'')||'Code';
+  const code=match[2].replace(/\\n$/,'');
+  const card=document.createElement('section');card.className='ai-code-card';
+  const head=document.createElement('div');head.className='ai-code-head';
+  const label=document.createElement('span');label.className='ai-code-lang';label.textContent=lang;
+  const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='⧉ Copy code';
+  copy.addEventListener('click',()=>copyText(code));
+  const pre=document.createElement('pre'),content=document.createElement('code');content.textContent=code;pre.append(content);
+  head.append(label,copy);card.append(head,pre);root.append(card);cursor=re.lastIndex;blocks++;
+ }
+ const tail=source.slice(cursor).trim();
+ if(tail){const p=document.createElement('div');p.className='ai-prose';p.textContent=tail;root.append(p)}
+ if(!blocks&&!tail&&cursor===0){root.textContent=source}
+ if(!root.childNodes.length)root.textContent=source;
+}
+
 async function copyText(text){if(!text){toast('Nothing to copy yet');return}try{await navigator.clipboard.writeText(text);toast('Copied to clipboard')}catch{const t=document.createElement('textarea');t.value=text;document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'Copied to clipboard':'Clipboard permission unavailable')}}
 function go(page){if(!names[page])return;currentPage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('crumb').textContent=names[page];$('sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'});if(page==='timestamp'&&!$('date-input').value)$('date-input').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
@@ -129,7 +172,7 @@ async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
    let data={};try{data=await res.json()}catch{}
    if(!res.ok)throw new Error(data.error||'The AI request failed (HTTP '+res.status+').');
    if(!data.output||!String(data.output).trim())throw new Error('The AI returned an empty response. Please try again.');
-   $(outId).textContent=data.output;lastOutput=data.output;
+   renderAIOutput(outId,String(data.output));lastOutput=String(data.output);
    const provider=data.provider?' Provider: '+data.provider+(data.model?' ('+data.model+')': '')+'.':'';
    status(statusId,'Response ready.'+provider+' Review generated code before using it.','ok');
    toast('AI response ready');$(outId).scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -140,6 +183,27 @@ async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
    status(statusId,'Request stopped. You can safely retry.','err');toast(timedOut?'AI request timed out':'AI request failed');
  }finally{hideLoading();btn.disabled=false;btn.textContent=old}
 }
+
+let globalCodeLanguage='JavaScript';
+const universalLanguages=['HTML','CSS','JavaScript','TypeScript','Python','Node.js','React','Next.js','Discord.js','Java','C++','SQL','PHP'];
+function setGlobalLanguage(language){
+ globalCodeLanguage=language;
+ document.querySelectorAll('.global-language button').forEach(b=>{const active=b.dataset.globalLang===language;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});
+ if($('fix-language')){const option=[...$('fix-language').options].find(o=>o.text===language||o.value===language);if(option)$('fix-language').value=option.value}
+ if(typeof setCodeLanguage==='function'&&document.querySelector('.lang-tab[data-lang="'+language+'"]'))setCodeLanguage(language);
+}
+function installUniversalLanguageBars(){
+ document.querySelectorAll('.page').forEach(page=>{
+  if(page.id==='page-ai'||page.querySelector('.global-language'))return;
+  const head=page.querySelector('.pagehead');if(!head)return;
+  const bar=document.createElement('div');bar.className='global-language';
+  const label=document.createElement('span');label.className='gl-label';label.textContent='ACTIVE CODE LANGUAGE';
+  bar.append(label);
+  universalLanguages.forEach(language=>{const b=document.createElement('button');b.type='button';b.dataset.globalLang=language;b.textContent=language;b.addEventListener('click',()=>setGlobalLanguage(language));bar.append(b)});
+  head.insertAdjacentElement('afterend',bar);
+ });
+}
+
 let activeCodeLanguage='HTML';
 function setCodeLanguage(language){
  activeCodeLanguage=language;
@@ -149,6 +213,8 @@ function setCodeLanguage(language){
  $('active-code-label').setAttribute('for',document.querySelector('[data-code-editor="'+language+'"]').id);
 }
 document.querySelectorAll('.lang-tab').forEach(tab=>tab.addEventListener('click',()=>setCodeLanguage(tab.dataset.lang)));
+document.querySelectorAll('.lang-tab').forEach(tab=>tab.addEventListener('click',()=>{globalCodeLanguage=tab.dataset.lang;document.querySelectorAll('.global-language button').forEach(b=>{const a=b.dataset.globalLang===globalCodeLanguage;b.classList.toggle('active',a);b.setAttribute('aria-pressed',String(a))})}));
+installUniversalLanguageBars();setGlobalLanguage('HTML');
 function collectLanguageCode(){
  return [...document.querySelectorAll('[data-code-editor]')].map(el=>({language:el.dataset.codeEditor,code:el.value.trim()})).filter(item=>item.code).map(item=>'--- '+item.language+' ---\\n'+item.code).join('\\n\\n');
 }
@@ -162,7 +228,8 @@ $('ai-run').addEventListener('click',()=>{
 });
 $('ai-clear').addEventListener('click',()=>{$('ai-prompt').value='';$('ai-overview').value='';document.querySelectorAll('[data-code-editor]').forEach(el=>el.value='');$('ai-output').innerHTML='<div class="emptyhint">Waiting for your prompt…</div>';status('ai-status','Ready.');toast('AI form cleared')});
 $('ai-copy').addEventListener('click',()=>copyText($('ai-output').innerText));
-$('fix-run').addEventListener('click',()=>callAI('fix',$('fix-language').value,$('fix-prompt').value,$('fix-code').value,'fix-output','fix-status','fix-run'));
+document.querySelectorAll('.ai-output').forEach(el=>{if(el.id!=='ai-output'&&el.id!=='fix-output')return});
+$('fix-run').addEventListener('click',()=>callAI('fix',globalCodeLanguage,$('fix-prompt').value+'\\n\\nSelected output language: '+globalCodeLanguage+'. If code is needed, return each file in a separate fenced code block with the correct language label.',$('fix-code').value,'fix-output','fix-status','fix-run'));
 $('fix-clear').addEventListener('click',()=>{$('fix-prompt').value='';$('fix-code').value='';$('fix-output').innerHTML='<div class="emptyhint">Your diagnosis will appear here.</div>';status('fix-status','Ready to analyze.')});
 $('fix-copy').addEventListener('click',()=>copyText($('fix-output').innerText));
 $('play-sample').addEventListener('click',()=>{$('play-html').value='<main class="card"><div class="badge">AR / DEMO</div><h1>Build something cool.</h1><p>Edit this page, change the styles, then click the button.</p><button id="hello">Test interaction</button><p id="message" aria-live="polite"></p></main>';$('play-css').value='*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#08120f;color:#e8fff3;font-family:system-ui,sans-serif}.card{max-width:540px;margin:24px;padding:32px;border:1px solid #285b46;border-radius:20px;background:#0d1d17;box-shadow:0 20px 80px #0005}.badge{color:#72f7b5;font:700 11px monospace;letter-spacing:2px}h1{font-size:clamp(30px,6vw,48px);margin:18px 0}p{color:#a8c1b4;line-height:1.7}button{border:0;border-radius:9px;background:#72f7b5;color:#07110c;padding:11px 16px;font-weight:800}';$('play-js').value="document.querySelector('#hello').addEventListener('click',()=>document.querySelector('#message').textContent='It works! Keep experimenting.');";toast('Sample loaded')});
@@ -200,7 +267,7 @@ async function assistTool(key){
  const spec=specs[key];if(!spec)return;
  const input=spec.input();if(!input.trim()){status(key+'-ai-status','Enter some input or generate a result first.','err');return}
  const prompt=spec.prompt+'\n\nTool: '+spec.title+'\nCurrent local output (may be empty):\n'+(spec.output()||'(no output yet)')+'\n\nAnalyze the supplied values only; do not claim the browser executed anything beyond the shown local output.';
- await callAI(spec.mode,spec.language,prompt,input,key+'-ai-output',key+'-ai-status',key+'-ai');
+ await callAI(spec.mode,globalCodeLanguage,prompt+'\\n\\nSelected output language: '+globalCodeLanguage+'. If you provide code, put each distinct file or language in its own fenced code block labelled with the language. Do not mix different files into one code block.',input,key+'-ai-output',key+'-ai-status',key+'-ai');
 }
 
 $('json-ai').addEventListener('click',()=>assistTool('json'));
