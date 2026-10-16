@@ -122,18 +122,41 @@ module.exports = async function handler(req, res) {
       });
       const data = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
-        const output = data && data.choices && data.choices[0] && data.choices[0].message
-          ? data.choices[0].message.content
-          : '';
-        if (typeof output === 'string' && output.trim()) {
+        const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
+        const message = choice && choice.message ? choice.message : {};
+        const content = message.content;
+        // OpenAI-compatible providers may return content as either a string
+        // or an array of text parts. Normalize both formats safely.
+        let output = '';
+        if (typeof content === 'string') {
+          output = content.trim();
+        } else if (Array.isArray(content)) {
+          output = content.map(part => {
+            if (typeof part === 'string') return part;
+            if (part && typeof part.text === 'string') return part.text;
+            if (part && part.type === 'text' && typeof part.content === 'string') return part.content;
+            return '';
+          }).filter(Boolean).join('\\n').trim();
+        }
+        if (output) {
           return res.status(200).json({
-            output: output.trim(),
+            output,
             provider: 'openrouter',
             model: data.model || 'openrouter/free',
             fallback: true
           });
         }
-        return res.status(502).json({ error: 'OpenRouter returned no text. Please try again.' });
+        // Avoid exposing provider payloads or secrets; include safe metadata
+        // so the next failure is diagnosable from the UI.
+        const finishReason = choice && choice.finish_reason ? String(choice.finish_reason) : 'unknown';
+        const responseId = data && typeof data.id === 'string' ? data.id : '';
+        return res.status(502).json({
+          error: 'OpenRouter returned no readable text (finish reason: ' + finishReason + '). Try again; if repeated, check model availability in OpenRouter.',
+          provider: 'openrouter',
+          model: data && data.model ? data.model : 'openrouter/free',
+          responseId: responseId.slice(0, 100),
+          retryable: true
+        });
       }
       const detail = data && data.error && data.error.message ? data.error.message : 'OpenRouter request failed.';
       return res.status(503).json({
