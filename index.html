@@ -65,7 +65,7 @@
 <div class="workspace"><div class="row2"><div class="field"><label for="ai-mode">TASK MODE</label><select id="ai-mode"><option value="generate">Build / generate code</option><option value="fix">Debug / fix code</option><option value="explain">Explain code</option><option value="review">Review for bugs & security</option><option value="refactor">Refactor / improve</option><option value="tests">Write tests</option><option value="convert">Convert to another language</option></select></div><div class="field"><label for="ai-language">LANGUAGE / STACK</label><select id="ai-language"><option>JavaScript</option><option>TypeScript</option><option>HTML, CSS and JavaScript</option><option>Python</option><option>Node.js</option><option>React</option><option>Next.js</option><option>Discord.js</option><option>Java</option><option>C++</option><option>SQL</option><option>PHP</option><option>Other / choose from prompt</option></select></div></div>
 <div class="field"><label for="ai-prompt">YOUR PROMPT</label><textarea id="ai-prompt" style="min-height:175px" placeholder="Example: Build a responsive gaming dashboard with a sidebar, stats cards, search, and a dark green hacker theme. Give me complete working files and explain how to deploy it."></textarea><div class="help">Tip: mention what it should do, who will use it, and any design or technical requirements. Do not paste passwords, API keys, or private data.</div></div>
 <div class="field"><label for="ai-code">EXISTING CODE (OPTIONAL)</label><textarea id="ai-code" placeholder="Paste the relevant code here if you're fixing, explaining, reviewing, or improving something."></textarea></div>
-<div class="actions"><button class="btn primary" id="ai-run">▶ Run AI task</button><button class="btn secondary" id="ai-clear">Clear form</button></div><p class="statusline" id="ai-status" aria-live="polite">Ready. AI tasks use the secured server endpoint; your API key is not placed in the browser.</p></div>
+<div class="actions"><button class="btn primary" id="ai-run">▶ Run AI task</button><button class="btn secondary" id="ai-clear">Clear form</button></div><p class="statusline" id="ai-status" aria-live="polite">Ready. AI tasks use the secured OpenAI server endpoint; your API key is not placed in the browser.</p></div>
 <div class="workspace"><div class="sectionhead" style="margin:0 0 13px"><div><h2>AI response</h2><p>Review the result before using code in a real project.</p></div><button class="btn secondary" id="ai-copy">Copy response</button></div><div class="resultbox ai-output" id="ai-output" aria-live="polite"><div class="emptyhint">Waiting for your prompt…<br><br>Useful output should include practical code, assumptions, setup steps, and a way to verify the result. The AI cannot claim it ran your code unless an actual test tool did so.</div></div></div>
 </section>
 
@@ -122,7 +122,7 @@ async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
  if(!prompt.trim()&&!code.trim()){status(statusId,'Add a prompt or code before running the task.','err');toast('Nothing to send yet');return}
  const btn=$(buttonId),old=btn.textContent;
  btn.disabled=true;btn.innerHTML='<span class="loading"><span class="spinner"></span> Working…</span>';
- showLoading(mode==='fix'?'Analyzing code…':'ARCodes AI is working…','Waiting for the AI provider. This request will time out automatically if the service hangs.');
+ showLoading(mode==='fix'?'Analyzing code…':'ARCodes AI is working…','Waiting for OpenAI. This request will time out automatically if the service hangs.');
  status(statusId,'Connecting to the AI service…');$(outId).textContent='Generating response…';
  try{
    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language,prompt,code}),signal:AbortSignal.timeout(55000)});
@@ -135,8 +135,8 @@ async function callAI(mode,language,prompt,code,outId,statusId,buttonId){
    toast('AI response ready');$(outId).scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){
    const timedOut=e&&e.name==='TimeoutError';
-   const message=timedOut?'The request took too long and was stopped automatically. The AI provider may be overloaded, or the fallback key may be missing.':(e.message||'Unexpected network error');
-   $(outId).textContent='Could not complete the AI request.\n\n'+message+'\n\nYour page is responsive again. Tap Run AI to retry. If it keeps failing, check Vercel Runtime Logs and confirm GEMINI_API_KEY and (for fallback) OPENROUTER_API_KEY are configured in Production. Never paste secret keys into this page.';
+   const message=timedOut?'The request took too long and was stopped automatically. The OpenAI may be busy, or the API key/billing configuration may need attention.':(e.message||'Unexpected network error');
+   $(outId).textContent='Could not complete the AI request.\n\n'+message+'\n\nYour page is responsive again. Tap Run AI to retry. If it keeps failing, check Vercel Runtime Logs and confirm OPENAI_API_KEY is configured in Vercel Production and that API billing/quota is available. Never paste secret keys into this page.';
    status(statusId,'Request stopped. You can safely retry.','err');toast(timedOut?'AI request timed out':'AI request failed');
  }finally{hideLoading();btn.disabled=false;btn.textContent=old}
 }
