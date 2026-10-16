@@ -121,7 +121,7 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: instructions + '\\n\\nFor code-generation tasks, output complete working code in a fenced code block. Do not output safety labels, hidden reasoning, or provider metadata.' },
+              { role: 'system', content: instructions + '\n\nFor code-generation tasks, output complete working code in a fenced code block. Do not output safety labels, hidden reasoning, or provider metadata.' },
               { role: 'user', content: task }
             ],
             max_tokens: 6000,
@@ -146,13 +146,13 @@ module.exports = async function handler(req, res) {
             if (part && typeof part.text === 'string') return part.text;
             if (part && part.type === 'text' && typeof part.content === 'string') return part.content;
             return '';
-          }).filter(Boolean).join('\\n').trim();
+          }).filter(Boolean).join('\n').trim();
         }
         // Some reasoning models put their answer in a separate field.
         if (!output && typeof message.reasoning === 'string') {
           output = message.reasoning.trim();
         }
-        if (!output || /^(user safety:\\s*(safe|unsafe)|safety classification:)/i.test(output)) {
+        if (!output || /^(user safety:\s*(safe|unsafe)|safety classification:)/i.test(output)) {
           failures.push(model + ': no usable code/text response');
           continue;
         }
