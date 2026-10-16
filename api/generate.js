@@ -44,39 +44,68 @@ module.exports = async function handler(req, res) {
     code ? 'SOURCE CODE:\n' + code : ''
   ].filter(Boolean).join('\n\n');
   try {
-    // Gemini 2.5 access is restricted for new users. Use the current stable
-    // Flash model by default; GEMINI_MODEL can override it when needed.
-    const model = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
-    if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
+    const primaryModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+    if (!/^[a-zA-Z0-9._-]+$/.test(primaryModel)) {
       return res.status(500).json({ error: 'GEMINI_MODEL contains an invalid model name.' });
     }
-    const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-      method: 'POST',
-      headers: {
-        'x-goog-api-key': process.env.GEMINI_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: instructions }] },
-        contents: [{ role: 'user', parts: [{ text: task }] }],
-        generationConfig: { maxOutputTokens: 6000, temperature: 0.3 }
-      })
+    const requestBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: instructions }] },
+      contents: [{ role: 'user', parts: [{ text: task }] }],
+      generationConfig: { maxOutputTokens: 6000, temperature: 0.3 }
     });
-    const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-      const message = data && data.error && data.error.message ? data.error.message : 'The Gemini request failed.';
-      const statusCode = upstream.status === 429 ? 429 : (upstream.status === 400 || upstream.status === 403 ? 502 : 502);
-      return res.status(statusCode).json({ error: message.slice(0, 500) });
+    const models = [primaryModel];
+    // If the selected model is overloaded, make one best-effort attempt with
+    // another Flash model instead of failing immediately.
+    if (primaryModel !== 'gemini-3.6-flash') models.push('gemini-3.6-flash');
+    let lastStatus = 503;
+    let lastMessage = 'Gemini is temporarily busy.';
+    for (const model of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let upstream;
+        try {
+          upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+            method: 'POST',
+            headers: {
+              'x-goog-api-key': process.env.GEMINI_API_KEY,
+              'Content-Type': 'application/json'
+            },
+            body: requestBody
+          });
+        } catch {
+          lastStatus = 503;
+          lastMessage = 'Could not reach Google Gemini.';
+          if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
+          continue;
+        }
+        const data = await upstream.json().catch(() => ({}));
+        if (upstream.ok) {
+          const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
+          const output = candidate && candidate.content && Array.isArray(candidate.content.parts)
+            ? candidate.content.parts.filter(part => typeof part.text === 'string').map(part => part.text).join('\n').trim()
+            : '';
+          if (!output) {
+            const reason = candidate && candidate.finishReason ? ' (finish reason: ' + candidate.finishReason + ')' : '';
+            return res.status(502).json({ error: 'Gemini returned no text response' + reason + '. Try a clearer prompt or try again.' });
+          }
+          return res.status(200).json({ output });
+        }
+        lastStatus = upstream.status;
+        lastMessage = data && data.error && data.error.message ? data.error.message : 'The Gemini request failed.';
+        // Only retry transient overload, rate-limit, and server errors.
+        if (![408, 429, 500, 502, 503, 504].includes(upstream.status)) {
+          const statusCode = upstream.status === 400 || upstream.status === 403 ? 502 : upstream.status;
+          return res.status(statusCode).json({ error: lastMessage.slice(0, 500) });
+        }
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
+      }
     }
-    const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
-    const output = candidate && candidate.content && Array.isArray(candidate.content.parts)
-      ? candidate.content.parts.filter(part => typeof part.text === 'string').map(part => part.text).join('\n').trim()
-      : '';
-    if (!output) {
-      const reason = candidate && candidate.finishReason ? ' (finish reason: ' + candidate.finishReason + ')' : '';
-      return res.status(502).json({ error: 'Gemini returned no text response' + reason + '. Try a clearer prompt or try again.' });
+    if (lastStatus === 503 || lastStatus === 429 || lastStatus >= 500) {
+      return res.status(503).json({
+        error: 'Google Gemini is temporarily overloaded or rate-limited. ARCodes retried and tried a fallback model, but it is still busy. Please wait a minute and try again.',
+        retryable: true
+      });
     }
-    return res.status(200).json({ output });
+    return res.status(502).json({ error: lastMessage.slice(0, 500) });
   } catch (error) {
     return res.status(502).json({ error: 'Could not reach Google Gemini. Check the Vercel function logs and try again.' });
   }
