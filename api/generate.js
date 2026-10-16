@@ -29,6 +29,7 @@ module.exports = async function handler(req, res) {
     'For debugging, separate confirmed findings from hypotheses, rank issues by severity, explain root causes and impact, and request missing details only when necessary.',
     'For generate/build requests, produce the actual requested implementation, not just advice or a high-level outline. Include complete code that can be copied, file names, dependencies, setup, and integration steps. If the task spans multiple files, label each file and provide each complete file or clearly identify any unavoidable omissions.',
     'For every task, put the most useful direct answer first. Keep the explanation understandable for a beginner, then provide code, examples, and verification steps as relevant. Never replace requested code with generic descriptions.',
+    'For code-generation requests, return the actual implementation in clearly labeled fenced code blocks using the requested language. Do not output internal analysis, moderation labels, safety classifications, routing metadata, or phrases such as "User Safety: safe". If the request is allowed, answer the request directly. If a brief explanation helps, put it outside the code block.',
     'If key requirements are missing, make safe, clearly stated assumptions and still deliver a useful first implementation rather than asking unnecessary follow-up questions.',
     'When fixing code, preserve intended behavior, provide the smallest safe change where possible, explain important changes, and include practical test cases plus exact verification steps.',
     'For code reviews, cover correctness, security, performance, edge cases, maintainability, and operational reliability. Prioritize findings and tie them to the supplied code.',
@@ -111,12 +112,15 @@ module.exports = async function handler(req, res) {
         },
         signal: AbortSignal.timeout(12000),
         body: JSON.stringify({
-          model: 'openrouter/free',
+          // Prefer coding-capable free models; OpenRouter can fall through to the next model.
+          models: ['qwen/qwen3-coder:free', 'deepseek/deepseek-r1:free'],
+          model: 'qwen/qwen3-coder:free',
           messages: [
             { role: 'system', content: instructions },
             { role: 'user', content: task }
           ],
           max_tokens: 6000,
+          // Ask for a direct developer-facing answer rather than provider metadata.
           temperature: 0.3
         })
       });
@@ -136,7 +140,7 @@ module.exports = async function handler(req, res) {
             if (part && typeof part.text === 'string') return part.text;
             if (part && part.type === 'text' && typeof part.content === 'string') return part.content;
             return '';
-          }).filter(Boolean).join('\\n').trim();
+          }).filter(Boolean).join('\n').trim();
         }
         if (output) {
           return res.status(200).json({
