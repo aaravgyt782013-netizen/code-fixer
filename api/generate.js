@@ -1,6 +1,5 @@
-// Vercel serverless function for ARCodes AI features, powered by Google Gemini.
-// Configure GEMINI_API_KEY in Vercel Project Settings > Environment Variables.
-// Optional: set GEMINI_MODEL to a Gemini model available to your API key.
+// ARCodes AI endpoint: Gemini primary, OpenRouter free-model fallback.
+// Keep provider keys in Vercel Environment Variables only.
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -8,8 +7,8 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Use POST for AI requests.' });
   }
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(503).json({ error: 'Google Gemini is not connected yet. Add GEMINI_API_KEY to this Vercel project’s environment variables, then redeploy.' });
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
+    return res.status(503).json({ error: 'No AI provider is configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY in Vercel Environment Variables, then redeploy.' });
   }
   let body = req.body;
   if (typeof body === 'string') {
@@ -43,70 +42,112 @@ module.exports = async function handler(req, res) {
     prompt ? 'USER REQUEST:\n' + prompt : '',
     code ? 'SOURCE CODE:\n' + code : ''
   ].filter(Boolean).join('\n\n');
-  try {
-    const primaryModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
-    if (!/^[a-zA-Z0-9._-]+$/.test(primaryModel)) {
-      return res.status(500).json({ error: 'GEMINI_MODEL contains an invalid model name.' });
-    }
-    const requestBody = JSON.stringify({
-      systemInstruction: { parts: [{ text: instructions }] },
-      contents: [{ role: 'user', parts: [{ text: task }] }],
-      generationConfig: { maxOutputTokens: 6000, temperature: 0.3 }
-    });
-    const models = [primaryModel];
-    // If the selected model is overloaded, make one best-effort attempt with
-    // another Flash model instead of failing immediately.
-    if (primaryModel !== 'gemini-3.6-flash') models.push('gemini-3.6-flash');
-    let lastStatus = 503;
-    let lastMessage = 'Gemini is temporarily busy.';
-    for (const model of models) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        let upstream;
-        try {
-          upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-            method: 'POST',
-            headers: {
-              'x-goog-api-key': process.env.GEMINI_API_KEY,
-              'Content-Type': 'application/json'
-            },
-            body: requestBody
-          });
-        } catch {
-          lastStatus = 503;
-          lastMessage = 'Could not reach Google Gemini.';
-          if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
-          continue;
-        }
-        const data = await upstream.json().catch(() => ({}));
-        if (upstream.ok) {
-          const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
-          const output = candidate && candidate.content && Array.isArray(candidate.content.parts)
-            ? candidate.content.parts.filter(part => typeof part.text === 'string').map(part => part.text).join('\n').trim()
-            : '';
-          if (!output) {
-            const reason = candidate && candidate.finishReason ? ' (finish reason: ' + candidate.finishReason + ')' : '';
-            return res.status(502).json({ error: 'Gemini returned no text response' + reason + '. Try a clearer prompt or try again.' });
-          }
-          return res.status(200).json({ output });
-        }
-        lastStatus = upstream.status;
-        lastMessage = data && data.error && data.error.message ? data.error.message : 'The Gemini request failed.';
-        // Only retry transient overload, rate-limit, and server errors.
-        if (![408, 429, 500, 502, 503, 504].includes(upstream.status)) {
-          const statusCode = upstream.status === 400 || upstream.status === 403 ? 502 : upstream.status;
-          return res.status(statusCode).json({ error: lastMessage.slice(0, 500) });
-        }
-        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
+  let geminiMessage = 'Gemini is not configured.';
+  let geminiTransient = true;
+
+  // Primary provider: Google Gemini. Retry transient failures, then fall back.
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const primaryModel = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+      if (!/^[a-zA-Z0-9._-]+$/.test(primaryModel)) {
+        return res.status(500).json({ error: 'GEMINI_MODEL contains an invalid model name.' });
       }
+      const geminiModels = [primaryModel];
+      if (primaryModel !== 'gemini-3.6-flash') geminiModels.push('gemini-3.6-flash');
+      for (const model of geminiModels) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          let upstream;
+          try {
+            upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+              method: 'POST',
+              headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: instructions }] },
+                contents: [{ role: 'user', parts: [{ text: task }] }],
+                generationConfig: { maxOutputTokens: 6000, temperature: 0.3 }
+              })
+            });
+          } catch {
+            geminiMessage = 'Could not reach Google Gemini.';
+            if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
+            continue;
+          }
+          const data = await upstream.json().catch(() => ({}));
+          if (upstream.ok) {
+            const candidate = Array.isArray(data.candidates) ? data.candidates[0] : null;
+            const output = candidate && candidate.content && Array.isArray(candidate.content.parts)
+              ? candidate.content.parts.filter(part => typeof part.text === 'string').map(part => part.text).join('\n').trim()
+              : '';
+            if (output) return res.status(200).json({ output, provider: 'gemini', model });
+            geminiMessage = 'Gemini returned no text response.';
+            break;
+          }
+          geminiMessage = data && data.error && data.error.message ? data.error.message : 'The Gemini request failed.';
+          geminiTransient = [408, 429, 500, 502, 503, 504].includes(upstream.status);
+          if (!geminiTransient) {
+            const statusCode = upstream.status === 400 || upstream.status === 403 ? 502 : upstream.status;
+            return res.status(statusCode).json({ error: geminiMessage.slice(0, 500) });
+          }
+          if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 700));
+        }
+      }
+    } catch {
+      geminiMessage = 'Gemini request failed unexpectedly.';
     }
-    if (lastStatus === 503 || lastStatus === 429 || lastStatus >= 500) {
+  }
+
+  // Secondary provider: OpenRouter routes to an available free model.
+  // Requires OPENROUTER_API_KEY in Vercel; free capacity and limits can vary.
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://code-fixer-black.vercel.app',
+          'X-Title': 'ARCodes'
+        },
+        body: JSON.stringify({
+          model: 'openrouter/free',
+          messages: [
+            { role: 'system', content: instructions },
+            { role: 'user', content: task }
+          ],
+          max_tokens: 6000,
+          temperature: 0.3
+        })
+      });
+      const data = await upstream.json().catch(() => ({}));
+      if (upstream.ok) {
+        const output = data && data.choices && data.choices[0] && data.choices[0].message
+          ? data.choices[0].message.content
+          : '';
+        if (typeof output === 'string' && output.trim()) {
+          return res.status(200).json({
+            output: output.trim(),
+            provider: 'openrouter',
+            model: data.model || 'openrouter/free',
+            fallback: true
+          });
+        }
+        return res.status(502).json({ error: 'OpenRouter returned no text. Please try again.' });
+      }
+      const detail = data && data.error && data.error.message ? data.error.message : 'OpenRouter request failed.';
       return res.status(503).json({
-        error: 'Google Gemini is temporarily overloaded or rate-limited. ARCodes retried and tried a fallback model, but it is still busy. Please wait a minute and try again.',
+        error: 'Gemini is unavailable and the OpenRouter fallback also failed. ' + detail.slice(0, 280) + (geminiMessage ? ' Gemini: ' + geminiMessage.slice(0, 180) : ''),
+        retryable: true
+      });
+    } catch {
+      return res.status(503).json({
+        error: 'Gemini is unavailable and ARCodes could not reach OpenRouter. Check the OPENROUTER_API_KEY setting and try again.',
         retryable: true
       });
     }
-    return res.status(502).json({ error: lastMessage.slice(0, 500) });
-  } catch (error) {
-    return res.status(502).json({ error: 'Could not reach Google Gemini. Check the Vercel function logs and try again.' });
   }
+
+  return res.status(503).json({
+    error: 'Gemini is temporarily unavailable. Add OPENROUTER_API_KEY in Vercel Environment Variables to enable the alternate AI fallback, then redeploy. Free model capacity can vary.',
+    retryable: geminiTransient
+  });
 };
