@@ -36,6 +36,26 @@
 .quick-prompts button:hover{border-color:#8175ff;color:white}
 @media(max-width:720px){.howto-panel{grid-template-columns:1fr;padding:13px;gap:13px}}
 
+
+/* Beginner-friendly guided tour */
+#start-tour{white-space:nowrap;padding:9px 12px;font-size:12px}
+.tour-backdrop{position:fixed;inset:0;background:rgba(3,7,15,.78);z-index:10000;backdrop-filter:blur(2px)}
+.tour-highlight{position:relative!important;z-index:10001!important;outline:2px solid #8b7cff!important;outline-offset:4px!important;box-shadow:0 0 0 6px rgba(139,124,255,.18),0 0 24px rgba(88,217,233,.25)!important;border-radius:10px!important}
+.tour-card{position:fixed;z-index:10002;left:50%;bottom:24px;transform:translateX(-50%);width:min(560px,calc(100vw - 28px));padding:21px;border:1px solid #45406e;border-radius:20px;background:linear-gradient(145deg,#151c2c,#111624);box-shadow:0 25px 80px #000a}
+.tour-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.tour-kicker{font-size:10px;letter-spacing:.13em;color:#a9a0ff;font-weight:800;text-transform:uppercase}
+.tour-progress{font-size:11px;color:#9aabc2}
+.tour-card h2{font-size:21px;line-height:1.25;margin:0 0 9px}
+.tour-card p{font-size:13px;line-height:1.75;color:#b8c5d9;margin:0 0 13px}
+.tour-example{border:1px solid #303e54;background:#0b1220;border-radius:11px;padding:11px 13px;font-size:12px;line-height:1.65;color:#dce7fa;margin:10px 0 15px}
+.tour-actions{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.tour-actions-left,.tour-actions-right{display:flex;gap:8px;align-items:center}
+.tour-actions button{font-size:12px}
+.tour-dots{display:flex;gap:5px;margin:0 0 15px}
+.tour-dots span{height:4px;flex:1;border-radius:99px;background:#293449}
+.tour-dots span.active{background:linear-gradient(90deg,#8b7cff,#58d9e9)}
+@media(max-width:600px){#start-tour{padding:8px;font-size:11px}.tour-card{bottom:10px;padding:17px}.tour-card h2{font-size:19px}.tour-card p{font-size:12px}.top-actions{gap:6px}}
+
 </style>
 </head>
 <body>
@@ -58,7 +78,7 @@
 <div class="side-bottom"><div class="status"><b>● All tools ready</b><br>Runs in your browser. Your input stays on this device.</div></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menu" aria-label="Open menu">☰</button><div class="crumb">ARCodes <span style="color:#586983">/</span> <strong id="crumb">Overview</strong></div></div><div class="top-actions"><div class="search"><span>⌕</span><input id="search" placeholder="Find a tool..." aria-label="Find a tool"></div><span class="kbd">TOOLS</span></div></header>
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menu" aria-label="Open menu">☰</button><div class="crumb">ARCodes <span style="color:#586983">/</span> <strong id="crumb">Overview</strong></div></div><div class="top-actions"><div class="search"><span>⌕</span><input id="search" placeholder="Find a tool..." aria-label="Find a tool"></div><button class="secondary" id="start-tour" type="button" title="Start the beginner tour">❔ Guide me</button><span class="kbd">TOOLS</span></div></header>
 <section id="page-home" class="tool-view visible">
 <div class="hero"><div class="eyebrow">✦ YOUR CODING TOOLKIT</div><h1>Build faster.<br><span>Code smarter.</span></h1><p>Small, powerful tools for everyday development. Format code, inspect JSON, encode strings, test patterns, and keep your workflow moving — all in one clean workspace.</p><button class="primary" id="explore">Explore tools ↗</button><button class="secondary" id="quick-json">Format JSON</button><div class="quick-prompts" style="margin-top:18px"><button data-quick-open="ai">✦ Build or explain code</button><button data-quick-open="fixer">🛠 Fix an error</button><button data-quick-open="playground">▣ Try code in browser</button><button data-quick-open="threatscan">⛨ Check file / code</button></div></div>
 <div class="section-head"><div><h2>Developer tools</h2><p>Everything you need, one click away.</p></div><span class="muted" style="font-size:11px">28+ TOOLS</span></div>
@@ -362,5 +382,56 @@ renderSnippets();
 
 $('date-input').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus()}if(e.key==='Escape')$('sidebar').classList.remove('open')});
+
+/* Guided onboarding tour: auto-shows once; users can restart it with "Guide me". */
+(()=>{
+ const tourSteps=[
+  {title:'Welcome to ARCodes 👋',text:'ARCodes is a toolbox for coding. You do not need to understand every tool yet. This short tour shows where to go, what to enter, and how to get help.',example:'You can come back to this tour any time by tapping “Guide me” at the top.',page:'home'},
+  {title:'Your tool menu',text:'This menu on the left contains all the tools. Tap a tool name to open it. On a phone, use the ☰ menu button first if the sidebar is hidden.',example:'Need help fixing code? Open “Code Fixer”. Want AI to write or explain code? Open “AI Studio”.',page:'home',target:'#nav'},
+  {title:'Find a tool quickly',text:'Type a word here, such as “JSON”, “color”, or “virus”. ARCodes filters the tool list so you do not have to search through everything.',example:'Try typing “JSON” to find the JSON formatter. Clear the search to see every tool again.',page:'home',target:'#search'},
+  {title:'Choose a tool from the home page',text:'Each card is a tool. Pick the one that matches your task. Start with simple formatters for tidying text, or choose AI Studio and Code Fixer for deeper coding help.',example:'“Format” makes code easier to read; it does not automatically repair every bug.',page:'home',target:'#tool-grid'},
+  {title:'AI Studio: explain, build, or review',text:'Write what you want in the first box. Be specific: what should happen, what actually happens, and any error message. Add related code in the second box when needed, then run the AI task.',example:'Good request: “Explain why this function returns the wrong result, fix it, and give me tests to check the fix.” Remove passwords and API keys before pasting code.',page:'ai',target:'#nav button[data-page="ai"]'},
+  {title:'Code Fixer: find the cause',text:'Choose the programming language, paste the broken code, and run the analysis. Read the explanation before copying the suggested fix. The website does not automatically change files on your device.',example:'For best results, include the exact error and the smallest code example that still shows the problem.',page:'fixer',target:'#nav button[data-page="fixer"]'},
+  {title:'Live Playground: try a small example',text:'HTML is the page content, CSS controls its look, and JavaScript adds actions. Edit the boxes and press Run preview to see the result. It is a practice area, not your live website.',example:'Tap “Load sample” first if you are unsure what to type. The preview may not behave exactly like a full production app.',page:'playground',target:'#nav button[data-page="playground"]'},
+  {title:'File & Code Scanner: check suspicious items',text:'For a file, select it and check its SHA-256 hash against VirusTotal if the API is configured. For code, paste the script and inspect the patterns it flags. The code checker does not run the script.',example:'A missing VirusTotal report does not prove a file is safe. Pattern matches can be harmless, too. Never paste secrets.',page:'threatscan',target:'#nav button[data-page="threatscan"]'},
+  {title:'Every tool has a quick guide',text:'When you open a supported tool, look for “Quick guide”. It explains what to enter, which action to use, and what the result means in simple language.',example:'If a result looks confusing, read the guide first, then try a small example before using important project code.',page:'json'},
+  {title:'You are ready to explore 🎉',text:'That is the basic tour! Start with the task you need today. Use “Guide me” whenever you want to see these steps again.',example:'Safety tip: keep backups, do not paste secret keys, and test suggested code before using it in a real project.',page:'home'}
+ ];
+ let current=0,overlay=null,card=null,lastFocus=null;
+ const $tour=id=>document.getElementById(id);
+ function removeHighlight(){document.querySelectorAll('.tour-highlight').forEach(el=>el.classList.remove('tour-highlight'))}
+ function closeTour(finished){
+  removeHighlight();if(overlay)overlay.remove();if(card)card.remove();overlay=card=null;
+  document.removeEventListener('keydown',onKey);
+  if(finished){try{localStorage.setItem('arcodes-tour-complete','yes')}catch(e){}}
+  if(lastFocus&&lastFocus.focus)lastFocus.focus();
+ }
+ function onKey(e){if(e.key==='Escape')closeTour(false);else if(e.key==='ArrowRight')render(current+1);else if(e.key==='ArrowLeft')render(current-1)}
+ function render(index){
+  if(index<0)return;
+  if(index>=tourSteps.length){closeTour(true);return}
+  current=index;const step=tourSteps[current];
+  if(step.page&&typeof openPage==='function')openPage(step.page);
+  removeHighlight();
+  let target=step.target?document.querySelector(step.target):null;
+  if(target){target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});target.classList.add('tour-highlight')}
+  const dots=tourSteps.map((_,i)=>'<span class="'+(i<=current?'active':'')+'"></span>').join('');
+  card.innerHTML='<div class="tour-top"><span class="tour-kicker">ARCodes beginner tour</span><span class="tour-progress">Step '+(current+1)+' of '+tourSteps.length+'</span></div><div class="tour-dots">'+dots+'</div><h2>'+step.title+'</h2><p>'+step.text+'</p><div class="tour-example"><strong>Example / tip</strong><br>'+step.example+'</div><div class="tour-actions"><div class="tour-actions-left"><button class="secondary" id="tour-skip">Skip tour</button></div><div class="tour-actions-right"><button class="secondary" id="tour-back" '+(current===0?'disabled':'')+'>Back</button><button class="primary" id="tour-next">'+(current===tourSteps.length-1?'Finish':'Next →')+'</button></div></div>';
+  $tour('tour-skip').onclick=()=>closeTour(false);
+  $tour('tour-back').onclick=()=>render(current-1);
+  $tour('tour-next').onclick=()=>render(current+1);
+ }
+ function startTour(){
+  lastFocus=document.activeElement;removeHighlight();
+  overlay=document.createElement('div');overlay.className='tour-backdrop';overlay.setAttribute('aria-hidden','true');
+  card=document.createElement('section');card.className='tour-card';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-label','ARCodes beginner tour');
+  document.body.append(overlay,card);document.addEventListener('keydown',onKey);render(0);
+  $tour('tour-next').focus();
+ }
+ $tour('start-tour').addEventListener('click',startTour);
+ let complete=false;try{complete=localStorage.getItem('arcodes-tour-complete')==='yes'}catch(e){}
+ if(!complete)setTimeout(startTour,650);
+})();
+
 </script>
 </body></html>
