@@ -1,4 +1,4 @@
-// ARCodes AI endpoint: OpenAI API only. Provider credentials stay server-side.
+// ARCodes AI endpoint: Groq API only. Provider credentials stay server-side.
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -6,8 +6,8 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Use POST for AI requests.' });
   }
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({ error: 'OpenAI is not configured. Add OPENAI_API_KEY in Vercel Environment Variables for Production, then redeploy.' });
+  if (!process.env.GROQ_API_KEY) {
+    return res.status(503).json({ error: 'Groq is not configured. Add GROQ_API_KEY in Vercel Environment Variables for Production, then redeploy.' });
   }
 
   let body = req.body;
@@ -47,14 +47,14 @@ module.exports = async function handler(req, res) {
   ].filter(Boolean).join('\n\n');
 
   try {
-    const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
+    const model = (process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
     if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
-      return res.status(500).json({ error: 'OPENAI_MODEL contains an invalid model name.' });
+      return res.status(500).json({ error: 'GROQ_MODEL contains an invalid model name.' });
     }
-    const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+    const upstream = await fetch('https://api.api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY,
+        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
         'Content-Type': 'application/json'
       },
       signal: AbortSignal.timeout(45000),
@@ -71,10 +71,10 @@ module.exports = async function handler(req, res) {
 
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      const detail = data && data.error && data.error.message ? data.error.message : 'OpenAI API request failed (HTTP ' + upstream.status + ').';
+      const detail = data && data.error && data.error.message ? data.error.message : 'Groq API request failed (HTTP ' + upstream.status + ').';
       const statusCode = [400, 401, 403, 404, 429].includes(upstream.status) ? 502 : 503;
       return res.status(statusCode).json({
-        error: 'OpenAI could not complete this request: ' + String(detail).slice(0, 450),
+        error: 'Groq could not complete this request: ' + String(detail).slice(0, 450),
         retryable: upstream.status === 429 || upstream.status >= 500
       });
     }
@@ -84,15 +84,15 @@ module.exports = async function handler(req, res) {
       ? choice.message.content.trim()
       : '';
     if (!output) {
-      return res.status(502).json({ error: 'OpenAI returned an empty response. Try a shorter prompt or run the task again.', retryable: true });
+      return res.status(502).json({ error: 'Groq returned an empty response. Try a shorter prompt or run the task again.', retryable: true });
     }
-    return res.status(200).json({ output, provider: 'openai', model: data.model || model });
+    return res.status(200).json({ output, provider: 'groq', model: data.model || model });
   } catch (error) {
     const timedOut = error && (error.name === 'TimeoutError' || error.name === 'AbortError');
     return res.status(503).json({
       error: timedOut
-        ? 'The OpenAI request timed out. Try a shorter prompt or try again.'
-        : 'Could not connect to the OpenAI API. Check Vercel Runtime Logs and try again.',
+        ? 'The Groq request timed out. Try a shorter prompt or try again.'
+        : 'Could not connect to the Groq API. Check Vercel Runtime Logs and try again.',
       retryable: true
     });
   }
