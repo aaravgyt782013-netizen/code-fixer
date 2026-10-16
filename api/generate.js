@@ -44,7 +44,9 @@ module.exports = async function handler(req, res) {
     code ? 'SOURCE CODE:\n' + code : ''
   ].filter(Boolean).join('\n\n');
   try {
-    const model = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    // Gemini 2.5 access is restricted for new users. Use the current stable
+    // Flash model by default; GEMINI_MODEL can override it when needed.
+    const model = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
     if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
       return res.status(500).json({ error: 'GEMINI_MODEL contains an invalid model name.' });
     }
