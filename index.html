@@ -194,7 +194,7 @@ function setCodeLanguage(language){
 document.querySelectorAll('.lang-tab').forEach(tab=>tab.addEventListener('click',()=>setCodeLanguage(tab.dataset.lang)));
 $('ai-language').addEventListener('change',()=>{globalCodeLanguage=$('ai-language').value;const editorLanguage=globalCodeLanguage==='HTML, CSS and JavaScript'?'HTML':globalCodeLanguage;if(document.querySelector('.lang-tab[data-lang="'+editorLanguage+'"]'))setCodeLanguage(editorLanguage)});
 $('fix-language').addEventListener('change',()=>{globalCodeLanguage=$('fix-language').value});
-$('ai-language').value='JavaScript';globalCodeLanguage='JavaScript';setCodeLanguage('HTML');
+$('ai-language').value='JavaScript';globalCodeLanguage='JavaScript';setCodeLanguage('JavaScript');
 function collectLanguageCode(){
  return [...document.querySelectorAll('[data-code-editor]')].map(el=>({language:el.dataset.codeEditor,code:el.value.trim()})).filter(item=>item.code).map(item=>'--- '+item.language+' ---\\n'+item.code).join('\\n\\n');
 }
