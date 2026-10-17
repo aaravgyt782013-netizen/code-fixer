@@ -31,6 +31,33 @@
 @keyframes codeReveal{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:650px){.global-language{gap:6px;padding:10px}.global-language .gl-label{width:100%;margin-bottom:2px}.global-language button{padding:7px 8px;font-size:10px}.ai-code-card pre{font-size:11px;padding:12px}}
 
+
+/* Desktop-first professional workspace refinements */
+@media(min-width:1051px){
+ .main{padding:30px clamp(28px,3vw,52px) 64px}
+ .topbar{margin-bottom:30px}
+ .page#page-ai.active{display:grid;grid-template-columns:minmax(350px,.88fr) minmax(0,1.12fr);column-gap:20px;align-items:start}
+ #page-ai>.pagehead{grid-column:1/-1;margin-bottom:24px}
+ #page-ai>.workspace{min-width:0;margin-bottom:0}
+ #page-ai>.workspace:nth-of-type(2){grid-column:1;grid-row:2}
+ #page-ai>.workspace:nth-of-type(3){grid-column:2;grid-row:2;position:sticky;top:18px}
+ #page-ai .ai-output{min-height:520px;max-height:calc(100vh - 210px);padding:16px}
+ .ai-code-card pre{font-size:12.5px;line-height:1.75;max-height:58vh}
+ .workspace{box-shadow:0 8px 30px #0000000b}
+ .pagehead p{font-size:14px}
+}
+@media(min-width:721px) and (max-width:1050px){
+ .main{padding:24px clamp(20px,3vw,34px) 50px}
+ .page#page-ai.active{display:block}
+ #page-ai>.workspace{margin-bottom:16px}
+}
+button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.ai-code-copy{min-height:34px;padding:8px 12px;font-weight:700;transition:background .16s,border-color .16s,transform .16s}
+.ai-code-copy:active{transform:scale(.97)}
+.ai-overview-card,.ai-code-card{box-shadow:0 4px 16px #00000012}
+.ai-code-card pre code{user-select:text;-webkit-user-select:text}
+@media(max-width:650px){.ai-code-copy{min-height:36px;padding:8px 10px}.ai-code-card pre{max-width:100%;overflow-x:auto}}
+
 </style>
 </head>
 <body>
@@ -168,7 +195,22 @@ function renderAIOutput(id,raw){
  for(const block of codes){const card=document.createElement('section');card.className='ai-code-card';const head=document.createElement('div');head.className='ai-code-head';const label=document.createElement('span');label.className='ai-code-lang';label.textContent=(block.filename?block.filename+' · ':'')+(block.lang||'Code').toUpperCase();const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='Copy code';copy.addEventListener('click',()=>copyText(block.code));const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=block.code;pre.append(code);head.append(label,copy);card.append(head,pre);root.append(card)}
  if(codes.some(b=>/\.(html?|css|js)$/i.test(b.filename||'')||/^(html|css|javascript|js)$/i.test(b.lang||''))&&['ai-output','fix-output','play-ai-output'].includes(id)){const actions=document.createElement('div');actions.className='ai-preview-actions';const btn=document.createElement('button');btn.type='button';btn.className='btn primary';btn.textContent='Preview web project';btn.addEventListener('click',()=>{const byName=n=>codes.find(b=>(b.filename||'').toLowerCase()===n),byLang=l=>codes.find(b=>l.includes((b.lang||'').toLowerCase()));const h=byName('index.html')||byName('index.htm')||byLang(['html','htm']),c=byName('style.css')||byName('styles.css')||byName('index.css')||byLang(['css']),j=byName('script.js')||byName('index.js')||byName('app.js')||byLang(['javascript','js']);$('play-html').value=h?h.code:'';$('play-css').value=c?c.code:'';$('play-js').value=j?j.code:'';go('playground');$('play-run').click()});actions.append(btn);root.append(actions)}
 }
-async function copyText(text){if(!text){toast('Nothing to copy yet');return}try{await navigator.clipboard.writeText(text);toast('Copied to clipboard')}catch{const t=document.createElement('textarea');t.value=text;document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'Copied to clipboard':'Clipboard permission unavailable')}}
+async function copyText(text){
+ if(text===null||text===undefined||String(text).length===0){toast('Nothing to copy yet');return false}
+ const value=String(text);
+ try{
+  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);toast('Copied to clipboard');return true}
+ }catch(_){}
+ let t;
+ try{
+  t=document.createElement('textarea');t.value=value;t.setAttribute('readonly','');
+  t.style.position='fixed';t.style.top='0';t.style.left='-9999px';t.style.width='1px';t.style.height='1px';t.style.opacity='0';
+  document.body.appendChild(t);t.focus({preventScroll:true});t.select();t.setSelectionRange(0,t.value.length);
+  const ok=document.execCommand('copy');t.remove();
+  if(ok){toast('Copied to clipboard');return true}
+ }catch(_){if(t&&t.parentNode)t.remove()}
+ toast('Copy was blocked by this browser. Try selecting the code and using Copy from the menu.');return false
+}
 function go(page){if(!names[page])return;currentPage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('crumb').textContent=names[page];$('sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'});if(page==='timestamp'&&!$('date-input').value)$('date-input').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
