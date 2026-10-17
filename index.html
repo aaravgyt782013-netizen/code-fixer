@@ -58,6 +58,10 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offse
 .ai-code-card pre code{user-select:text;-webkit-user-select:text}
 @media(max-width:650px){.ai-code-copy{min-height:36px;padding:8px 10px}.ai-code-card pre{max-width:100%;overflow-x:auto}}
 
+
+.creator-credit{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:flex-end;min-height:34px;padding:7px clamp(16px,2.2vw,32px);background:rgba(8,15,20,.88);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.045em;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+@media(max-width:720px){.creator-credit{min-height:32px;padding:7px 14px;font-size:10px}}
+
 </style>
 </head>
 <body>
@@ -82,6 +86,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offse
 </nav></div>
 <div class="sidebottom"><div class="connection"><span class="dot"></span><b style="color:#bcebd5">LOCAL TOOLS READY</b><br>Browser tools run on your device.<br>AI features need the server API connection.</div></div>
 </aside>
+<div class="creator-credit" aria-label="Website creator">Made By:-- Aarav Goyal</div>
 <main class="main">
 <header class="topbar"><div style="display:flex;align-items:center;gap:10px"><button class="iconbtn mobilemenu" id="menu" aria-label="Open menu">☰</button><div class="crumb">AR / <b id="crumb">Overview</b></div></div><div class="topright"><div class="search"><span>⌕</span><input id="search" placeholder="Find a tool…" aria-label="Find a tool"><span class="kbd" style="left:auto;right:8px;top:10px">⌘ K</span></div><button class="iconbtn" id="guide" aria-label="Show quick guide" title="Quick guide">?</button></div></header>
 
