@@ -131,25 +131,42 @@ function runLocal(title,fn){showLoading(title,'Processing locally in your browse
 function setOutput(id,value){$(id).textContent=value;lastOutput=value}
 function renderAIOutput(id,raw){
  const root=$(id);root.replaceChildren();const source=String(raw||''),blocks=[];
- const fence=/```([^\n`]*)(?:\r?\n)([\s\S]*?)```/g;let cursor=0,match;
- const filePattern=/^[`*_ ]*([\w./-]+\.(?:html?|css|js|jsx|ts|tsx|py|java|cpp|c|sql|php|json|ya?ml|md|sh|go|rs|rb|swift|kt|vue|svelte))[`*_ ]*:?$/i;
+ const fence=/```([^\n`]*)(?:\r?\n)([\s\S]*?)```/g;let cursor=0,match,pendingFilename='';
+ const filenamePattern=/^[`*_ ]*([\w./-]+\.(?:html?|css|js|jsx|ts|tsx|py|java|cpp|c|sql|php|json|ya?ml|md|sh|go|rs|rb|swift|kt|vue|svelte))[`*_ ]*:?$/i;
  while((match=fence.exec(source))){
   const before=source.slice(cursor,match.index).trim();let filename='';
-  if(before){const lines=before.split('\n'),fm=lines[lines.length-1].trim().match(filePattern);if(fm){filename=fm[1];lines.pop();const clean=lines.join('\n').trim();if(clean)blocks.push({type:'text',text:clean})}else blocks.push({type:'text',text:before})}
+  if(before){const lines=before.split('\n'),fm=lines[lines.length-1].trim().match(filenamePattern);
+   if(fm){filename=fm[1];lines.pop();const clean=lines.join('\n').trim();if(clean)blocks.push({type:'text',text:clean})}
+   else blocks.push({type:'text',text:before})
+  }
   blocks.push({type:'code',lang:(match[1]||'Code').trim().replace(/^language-/i,'')||'Code',filename,code:match[2].replace(/\n$/,'')});cursor=fence.lastIndex;
  }
  const tail=source.slice(cursor).trim();if(tail)blocks.push({type:'text',text:tail});if(!blocks.length)blocks.push({type:'text',text:source});
+ // Only split a combined block when file boundaries are explicitly labelled; never split on arbitrary source lines that merely resemble filenames.
  const expanded=[];
- for(const block of blocks){if(block.type!=='code'){expanded.push(block);continue}
-  const markers=[...block.code.matchAll(/(?:^|\n)\s*(?:\/\/\s*)?(?:#{1,3}\s*)?(?:File:\s*)?[`*_ ]*([\w./-]+\.(?:html?|css|js|jsx|ts|tsx|py|java|cpp|c|sql|php|json|ya?ml|md|sh|go|rs|rb|swift|kt|vue|svelte))[`*_ ]*\s*\n/gi)];
-  if(markers.length<2){expanded.push(block);continue}const pieces=[];
-  for(let i=0;i<markers.length;i++){const m=markers[i],contentStart=m.index+m[0].length,next=markers[i+1],contentEnd=next?next.index:block.code.length,chunk=block.code.slice(contentStart,contentEnd).trim();if(chunk)pieces.push({type:'code',lang:m[1].split('.').pop(),filename:m[1],code:chunk})}
+ for(const block of blocks){
+  if(block.type!=='code'){expanded.push(block);continue}
+  const markers=[...block.code.matchAll(/(?:^|\n)\s*(?:\/\/\s*)?\s*(?:#{1,3}\s*|File:\s*)([`*_ ]*[\w./-]+\.(?:html?|css|js|jsx|ts|tsx|py|java|cpp|c|sql|php|json|ya?ml|md|sh|go|rs|rb|swift|kt|vue|svelte)[`*_ ]*)\s*:?\s*\n/gim)];
+  if(markers.length<2){expanded.push(block);continue}
+  const pieces=[];
+  for(let i=0;i<markers.length;i++){
+   const m=markers[i],filename=m[1].replace(/^[`*_ ]+|[`*_ ]+$/g,''),contentStart=m.index+m[0].length,next=markers[i+1],contentEnd=next?next.index:block.code.length,chunk=block.code.slice(contentStart,contentEnd).trim();
+   if(chunk)pieces.push({type:'code',lang:filename.split('.').pop(),filename,code:chunk});
+  }
   if(pieces.length>1)expanded.push(...pieces);else expanded.push(block)
  }
- const prose=expanded.filter(b=>b.type==='text').map(b=>b.text).filter(Boolean),codes=expanded.filter(b=>b.type==='code');
- if(prose.length){const card=document.createElement('section');card.className='ai-overview-card';const head=document.createElement('div');head.className='ai-overview-head';const title=document.createElement('strong');title.textContent='✦ Overview';const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='Copy overview';copy.addEventListener('click',()=>copyText(prose.join('\n\n')));head.append(title,copy);const body=document.createElement('div');body.className='ai-overview-body';body.textContent=prose.join('\n\n');card.append(head,body);root.append(card)}
- for(const block of codes){const card=document.createElement('section');card.className='ai-code-card';const head=document.createElement('div');head.className='ai-code-head';const label=document.createElement('span');label.className='ai-code-lang';label.textContent=(block.filename?block.filename+' · ':'')+(block.lang||'Code').toUpperCase();const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='⧉ Copy code';copy.addEventListener('click',()=>copyText(block.code));const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=block.code;pre.append(code);head.append(label,copy);card.append(head,pre);root.append(card)}
- if(codes.some(b=>/\.(html?|css|js)$/i.test(b.filename||'')||/^(html|css|javascript|js)$/i.test(b.lang||''))&&['ai-output','fix-output','play-ai-output'].includes(id)){const actions=document.createElement('div');actions.className='ai-preview-actions';const btn=document.createElement('button');btn.type='button';btn.className='btn primary';btn.textContent='▶ Preview web project';btn.addEventListener('click',()=>{const byName=n=>codes.find(b=>(b.filename||'').toLowerCase()===n),byLang=l=>codes.find(b=>l.includes((b.lang||'').toLowerCase()));const h=byName('index.html')||byName('index.htm')||byLang(['html','htm']),c=byName('style.css')||byName('styles.css')||byName('index.css')||byLang(['css']),j=byName('script.js')||byName('index.js')||byName('app.js')||byLang(['javascript','js']);$('play-html').value=h?h.code:'';$('play-css').value=c?c.code:'';$('play-js').value=j?j.code:'';if(!h&&!c&&!j&&codes.length===1&&/html/i.test(codes[0].lang))$('play-html').value=codes[0].code;go('playground');$('play-run').click()});actions.append(btn);root.append(actions)}
+ // Merge repeated file-labelled fragments into a single complete, copyable card.
+ const merged=[],byFile=new Map();
+ for(const block of expanded){
+  if(block.type!=='code'||!block.filename){merged.push(block);continue}
+  const key=block.filename.toLowerCase();
+  if(byFile.has(key)){const existing=merged[byFile.get(key)];existing.code=existing.code+'\n\n'+block.code}
+  else{byFile.set(key,merged.length);merged.push({...block})}
+ }
+ const prose=merged.filter(b=>b.type==='text').map(b=>b.text).filter(Boolean),codes=merged.filter(b=>b.type==='code');
+ if(prose.length){const card=document.createElement('section');card.className='ai-overview-card';const head=document.createElement('div');head.className='ai-overview-head';const title=document.createElement('strong');title.textContent='Overview';const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='Copy overview';copy.addEventListener('click',()=>copyText(prose.join('\n\n')));head.append(title,copy);const body=document.createElement('div');body.className='ai-overview-body';body.textContent=prose.join('\n\n');card.append(head,body);root.append(card)}
+ for(const block of codes){const card=document.createElement('section');card.className='ai-code-card';const head=document.createElement('div');head.className='ai-code-head';const label=document.createElement('span');label.className='ai-code-lang';label.textContent=(block.filename?block.filename+' · ':'')+(block.lang||'Code').toUpperCase();const copy=document.createElement('button');copy.type='button';copy.className='ai-code-copy';copy.textContent='Copy code';copy.addEventListener('click',()=>copyText(block.code));const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=block.code;pre.append(code);head.append(label,copy);card.append(head,pre);root.append(card)}
+ if(codes.some(b=>/\.(html?|css|js)$/i.test(b.filename||'')||/^(html|css|javascript|js)$/i.test(b.lang||''))&&['ai-output','fix-output','play-ai-output'].includes(id)){const actions=document.createElement('div');actions.className='ai-preview-actions';const btn=document.createElement('button');btn.type='button';btn.className='btn primary';btn.textContent='Preview web project';btn.addEventListener('click',()=>{const byName=n=>codes.find(b=>(b.filename||'').toLowerCase()===n),byLang=l=>codes.find(b=>l.includes((b.lang||'').toLowerCase()));const h=byName('index.html')||byName('index.htm')||byLang(['html','htm']),c=byName('style.css')||byName('styles.css')||byName('index.css')||byLang(['css']),j=byName('script.js')||byName('index.js')||byName('app.js')||byLang(['javascript','js']);$('play-html').value=h?h.code:'';$('play-css').value=c?c.code:'';$('play-js').value=j?j.code:'';go('playground');$('play-run').click()});actions.append(btn);root.append(actions)}
 }
 async function copyText(text){if(!text){toast('Nothing to copy yet');return}try{await navigator.clipboard.writeText(text);toast('Copied to clipboard')}catch{const t=document.createElement('textarea');t.value=text;document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'Copied to clipboard':'Clipboard permission unavailable')}}
 function go(page){if(!names[page])return;currentPage=page;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('crumb').textContent=names[page];$('sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'});if(page==='timestamp'&&!$('date-input').value)$('date-input').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}
